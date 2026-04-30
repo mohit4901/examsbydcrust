@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* ---------- BASE ---------- */
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20
+           text-gray-900 antialiased;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont,
+                 "Segoe UI", Roboto, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: Lexend, Inter, sans-serif;
+  }
+}
+
+/* ---------- COMPONENTS ---------- */
+@layer components {
+
+  /* 🔴 BADGES (NO REUSE, DIRECT UTILITIES) */
+  .badge-primary {
+    @apply inline-flex items-center px-3 py-1 rounded-md
+           text-sm font-medium
+           bg-blue-100 text-blue-800;
+  }
+
+  .badge-success {
+    @apply inline-flex items-center px-3 py-1 rounded-md
+           text-sm font-medium
+           bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply inline-flex items-center px-3 py-1 rounded-md
+           text-sm font-medium
+           bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-danger {
+    @apply inline-flex items-center px-3 py-1 rounded-md
+           text-sm font-medium
+           bg-red-100 text-red-800;
+  }
+
+  /* 🔵 BUTTON */
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700
+           text-white px-6 py-3 rounded-lg
+           font-semibold transition-all duration-200
+           hover:-translate-y-0.5 hover:shadow-lg;
+  }
+}

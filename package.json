@@ -1,0 +1,15 @@
+{
+  "name": "pyq-platform",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "scrape": "node scripts/parseSessions.js",
+    "normalize": "node scripts/normalize.js",
+    "import": "node scripts/importToDB.js",
+    "server": "nodemon server/src/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "College PYQ platform"
+}
