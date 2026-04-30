@@ -42,6 +42,15 @@ app.use('/api/papers', paperRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/stats', statsRoutes);
 
+// Welcome routes
+app.get('/', (req, res) => {
+  res.send('<h1>Exams Of DCRUST API is Live!</h1><p>Visit /api/health for status.</p>');
+});
+
+app.get('/api', (req, res) => {
+  res.json({ message: 'Welcome to Exams Of DCRUST API', version: '1.0.0' });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PYQ Platform API is running' });
