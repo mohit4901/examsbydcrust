@@ -12,6 +12,9 @@ import statsRoutes from './routes/stats.routes.js';
 
 const app = express();
 
+// Trust proxy for Render deployment (required for rate-limit)
+app.set('trust proxy', 1);
+
 // Connect to MongoDB
 connectDB();
 
