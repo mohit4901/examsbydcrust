@@ -29,7 +29,7 @@ const callNVIDIA = async (prompt) => {
           "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
           "Content-Type": "application/json"
         },
-        timeout: 20000
+        timeout: 60000
       }
     );
     return JSON.parse(response.data.choices[0].message.content);
