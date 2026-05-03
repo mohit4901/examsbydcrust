@@ -105,7 +105,9 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
             const str = buffer.toString('utf-8');
             // Extract raw strings from PDF binary - works surprisingly well for text-based PDFs
             const matches = str.match(/\((.*?)\)/g);
-            const text = matches ? matches.map(m => m.slice(1, -1)).join(' ').substring(0, 10000) : "";
+            // Sanitize text: Keep only printable ASCII to prevent binary artifacts from breaking JSON
+            let text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
+            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 10000);
             return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
           } catch (e) {
             return `YEAR: ${p.year} (PDF unreachable)`;
@@ -113,15 +115,40 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
         })
       );
 
-      const fallbackPrompt = `${prompt}\n\nDATA EXTRACTED FROM PDFS:\n${fallbackTexts.join("\n")}\n\nIMPORTANT: If the data is empty, do not hallucinate questions. Instead, provide a generic but high-quality study strategy for this subject.`;
+      const fallbackPrompt = `
+        TASK: Return a structured JSON analysis for DCRUST subject ${subjectCode}.
+        DATA EXTRACTED FROM PDFS:
+        ${fallbackTexts.join("\n")}
+
+        REQUIRED JSON FORMAT:
+        {
+          "subject": "${subjectCode}",
+          "subjectName": "${subjectInfo?.name || subjectCode}",
+          "analysis": [
+            { "unit": "Unit I", "officialName": "${subjectInfo?.units[0] || 'Unit I'}", "repeatedQuestions": [], "importantTopics": [] },
+            { "unit": "Unit II", "officialName": "${subjectInfo?.units[1] || 'Unit II'}", "repeatedQuestions": [], "importantTopics": [] },
+            { "unit": "Unit III", "officialName": "${subjectInfo?.units[2] || 'Unit III'}", "repeatedQuestions": [], "importantTopics": [] },
+            { "unit": "Unit IV", "officialName": "${subjectInfo?.units[3] || 'Unit IV'}", "repeatedQuestions": [], "importantTopics": [] }
+          ],
+          "compulsorySection": [],
+          "roadmap": "A detailed success strategy",
+          "diagrams": [],
+          "expertTip": ""
+        }
+
+        IMPORTANT: Return ONLY the JSON object. Do not include any markdown blocks or extra text. If no data exists, do not hallucinate; provide a high-level strategy based on the subject name.
+      `;
 
       const fallbackCompletion = await groq.chat.completions.create({
         messages: [{ role: "user", content: fallbackPrompt }],
         model: "llama-3.3-70b-versatile",
-        response_format: { type: "json_object" }
+        // Removing strict json_object mode as it sometimes fails on Llama when the prompt has complex data
+        // response_format: { type: "json_object" } 
       });
 
-      return JSON.parse(fallbackCompletion.choices[0]?.message?.content);
+      const responseText = fallbackCompletion.choices[0]?.message?.content;
+      const cleanJsonMatch = responseText.match(/\{[\s\S]*\}/);
+      return JSON.parse(cleanJsonMatch ? cleanJsonMatch[0] : responseText);
     }
   } catch (error) {
     console.error("[AI Deep Analysis Fatal Error]:", error);
