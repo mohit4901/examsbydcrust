@@ -3,6 +3,8 @@ import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import InfiniteScroller from "../components/Scroller";
 import LoginModal from "../components/LoginModal";
+import { motion } from "framer-motion";
+import { Sparkles, Search, BookOpen, BrainCircuit, MessageCircle, BarChart3, ChevronRight, Zap } from "lucide-react";
 
 function Home() {
   const { user, loading } = useContext(AuthContext);
@@ -16,202 +18,204 @@ function Home() {
   }, [user, loading]);
 
   return (
-    <div className="w-full flex-1 bg-white">
+    <div className="w-full flex-1 bg-white overflow-hidden">
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
 
-   {/* ================= FULLSCREEN HERO ================= */}
-<section className="w-screen min-h-screen bg-gray-50">
-  <div className="w-full h-full">
+      {/* ================= PREMIUM HERO ================= */}
+      <section className="relative w-full min-h-screen flex items-center justify-center pt-20 pb-32">
+        {/* Abstract Background Decoration */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full -z-10 pointer-events-none overflow-hidden">
+          <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-50 rounded-full blur-[120px] opacity-60" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-50 rounded-full blur-[120px] opacity-60" />
+        </div>
 
-    <div className="
-      w-full min-h-screen
-      bg-white
-      flex items-center justify-center
-      px-4 sm:px-8
-    ">
-
-      <div className="text-center max-w-5xl w-full">
-
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight tracking-tight mb-6">
-          Find Past Year Question Papers
-          <br />
-          <span className="text-primary-600">
-            In Under 10 Seconds
-          </span>
-        </h1>
-
-        <p className="mx-auto max-w-2xl text-base sm:text-lg md:text-xl text-gray-600 leading-relaxed mb-10">
-          Access thousands of previous year question papers from your college.
-          Search by subject, filter by branch, semester, and year.
-        </p>
-
-        {/* CTA + Trust */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-          <Link
-            to="/papers"
-            className="inline-flex items-center justify-center rounded-full bg-gray-900 px-7 py-4 text-white text-base font-semibold shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
+        <div className="container mx-auto px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
           >
-            Browse Question Papers →
-          </Link>
-
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <div className="flex -space-x-2">
-              <img className="h-8 w-8 rounded-full border-2 border-white" src="https://i.pravatar.cc/32?img=1" />
-              <img className="h-8 w-8 rounded-full border-2 border-white" src="https://i.pravatar.cc/32?img=2" />
-              <img className="h-8 w-8 rounded-full border-2 border-white" src="https://i.pravatar.cc/32?img=3" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/5 border border-black/5 text-[10px] font-black uppercase tracking-[0.2em] text-black/60 mb-8">
+              <Sparkles className="w-3 h-3 text-blue-600" />
+              Powered by Multi-Model AI
             </div>
-            <span>
-              ⭐⭐⭐⭐⭐ <br className="sm:hidden" />
-              Trusted by 1000+ students
-            </span>
-          </div>
+
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-black leading-[0.95] tracking-tighter mb-8">
+              CRACK EXAMS <br />
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent italic">WITHOUT STRESS</span>
+            </h1>
+
+            <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-500 font-medium leading-relaxed mb-12">
+              DCRUST's smartest exam companion. Access 10,000+ papers and get 
+              AI-powered roadmaps, repeated question analysis, and 24/7 expert chat.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 px-4">
+              <Link
+                to="/papers"
+                className="w-full sm:w-auto flex items-center justify-center gap-3 bg-black text-white px-10 py-5 rounded-2xl text-base font-black shadow-2xl hover:scale-105 active:scale-95 transition-all"
+              >
+                <Search className="w-5 h-5" />
+                Browse Papers
+              </Link>
+              
+              <Link
+                to="/papers"
+                className="w-full sm:w-auto flex items-center justify-center gap-3 bg-white text-black border-2 border-black/5 px-10 py-5 rounded-2xl text-base font-black shadow-xl hover:bg-gray-50 transition-all"
+              >
+                <BrainCircuit className="w-5 h-5 text-purple-600" />
+                AI Deep Analysis
+              </Link>
+            </div>
+
+            <div className="mt-12 flex flex-col items-center gap-4">
+              <div className="flex -space-x-3">
+                {[1, 2, 3, 4].map(i => (
+                  <img key={i} className="h-10 w-10 rounded-full border-4 border-white object-cover shadow-lg" src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="Student" />
+                ))}
+              </div>
+              <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
+                Trusted by <span className="text-black">1200+ DCRUST Students</span>
+              </p>
+            </div>
+          </motion.div>
         </div>
-
-        {/* Branch Strip */}
-        <div className="mt-16 border-t pt-10">
-          <p className="mb-6 text-sm text-gray-500">
-            Loved by students across all branches
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-10 opacity-70">
-            <span className="font-semibold">CSE</span>
-            <span className="font-semibold">ECE</span>
-            <span className="font-semibold">ME</span>
-            <span className="font-semibold">CE</span>
-            <span className="font-semibold">EE</span>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-</section>
-
+      </section>
 
       {/* ================= INFINITE SCROLLER ================= */}
-      <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] mt-16">
+      <div className="w-full bg-black py-12 rotate-[-1deg] scale-110 shadow-2xl z-10">
         <InfiniteScroller />
       </div>
-{/* ================= TOOLS STACK SECTION ================= */}
-<section className="w-full bg-white py-20 sm:py-28">
-  <div className="mx-auto max-w-7xl px-4 sm:px-6">
 
-    {/* Top Badge */}
-    <div className="flex justify-center mb-6">
-      <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-1.5 text-xs font-medium text-gray-600">
-        ⚙️ BUILT IN TOOLS
-      </span>
-    </div>
+      {/* ================= AI REVOLUTION SECTION ================= */}
+      <section className="py-32 bg-white relative">
+        <div className="container mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-20 items-center">
+            <div>
+              <div className="w-16 h-1 w-20 bg-blue-600 mb-8" />
+              <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-black mb-8 leading-none">
+                THE AI <br />
+                REVOLUTION <br />
+                IN EXAMS.
+              </h2>
+              <p className="text-xl text-gray-500 font-medium mb-12">
+                We don't just give you papers. We give you the answers before the exam even starts. 
+                Our triple-engine AI pipeline (Gemini, NVIDIA, Groq) works together to analyze years of trends.
+              </p>
 
-    {/* Heading */}
-    <h2 className="text-center text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-gray-900 mb-10">
-      An entire stack of tools that keep
-      <br />
-      <span className="inline-flex items-center gap-2">
-        your
-        exams moving
-      </span>
-    </h2>
+              <div className="space-y-6">
+                <FeatureItem 
+                  icon={<BarChart3 className="w-6 h-6 text-blue-600" />}
+                  title="Repeated Question Tracker"
+                  desc="Instantly find questions that appear every single year with frequency counts."
+                />
+                <FeatureItem 
+                  icon={<MessageCircle className="w-6 h-6 text-purple-600" />}
+                  title="24/7 AI Exam Sage"
+                  desc="Chat with an AI trained specifically on DCRUST syllabus and past papers."
+                />
+                <FeatureItem 
+                  icon={<Zap className="w-6 h-6 text-orange-500" />}
+                  title="Success Roadmaps"
+                  desc="Get unit-wise study plans based on what actually matters for the 75-mark exam."
+                />
+              </div>
+            </div>
 
-    {/* Tabs */}
-    <div className="flex flex-wrap justify-center gap-2 mb-16">
-      {[
-        "All Branches",
-        "CSE",
-        "ECE",
-        "ME",
-        "CE",
-        "EE",
-      ].map((item, i) => (
-        <span
-          key={i}
-          className={`rounded-full px-4 py-2 text-sm ${
-            i === 0
-              ? "bg-gray-900 text-white"
-              : "bg-gray-100 text-gray-600"
-          }`}
-        >
-          {item}
-        </span>
-      ))}
-    </div>
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-600/5 rounded-[40px] blur-3xl" />
+              <div className="relative bg-black rounded-[40px] p-8 md:p-12 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.3)] border border-white/10 overflow-hidden group">
+                 {/* Mock UI for AI */}
+                 <div className="space-y-6">
+                    <div className="flex items-center gap-4 border-b border-white/10 pb-6">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black">
+                        <BrainCircuit className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="text-white font-black text-lg">CSE Deep Analysis</div>
+                        <div className="text-white/40 text-xs uppercase font-bold tracking-widest">Llama 3.1 405B Active</div>
+                      </div>
+                    </div>
 
-    {/* Cards */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="space-y-3 opacity-60">
+                       <div className="h-4 bg-white/10 rounded-full w-[80%]" />
+                       <div className="h-4 bg-white/10 rounded-full w-[60%]" />
+                    </div>
 
-      {/* Card 1 */}
-      <div className="relative rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
-        <span className="absolute top-6 left-6 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold">
-          1
-        </span>
+                    <div className="bg-white/5 rounded-3xl p-6 border border-white/5 transform group-hover:scale-[1.02] transition-transform">
+                       <div className="text-blue-400 text-xs font-black uppercase tracking-widest mb-3">Unit I Analysis</div>
+                       <div className="text-white font-bold mb-2">Repeated Question (5 times):</div>
+                       <div className="text-white/60 text-sm italic">"Define Waterfall Model and discuss its advantages and disadvantages in real-world projects."</div>
+                    </div>
 
-        <h3 className="mt-10 text-xl font-semibold text-gray-900 mb-3">
-          Smart Paper Search
-        </h3>
-        <p className="text-gray-600 leading-relaxed">
-          Instantly search previous year question papers by subject, semester,
-          year and session — zero confusion.
-        </p>
-
-        {/* Floating UI */}
-        <div className="mt-8 rounded-2xl bg-gray-50 p-4 text-sm shadow-inner">
-          🔍 Results found in <strong>0.4s</strong>
+                    <div className="flex gap-3 pt-6">
+                       <div className="h-12 flex-1 bg-white/5 rounded-2xl border border-white/5" />
+                       <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black">
+                          <ChevronRight className="w-5 h-5" />
+                       </div>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Card 2 */}
-      <div className="relative rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
-        <span className="absolute top-6 left-6 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold">
-          2
-        </span>
+      {/* ================= TOOLS STACK SECTION ================= */}
+      <section className="bg-gray-50 py-32 border-y border-black/5">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-20">
+            <h2 className="text-3xl md:text-5xl font-black tracking-tighter text-black mb-6">EVERYTHING YOU NEED.</h2>
+            <p className="text-gray-500 font-medium max-w-xl mx-auto">From first semester to final year, we've got every branch covered with precise resources.</p>
+          </div>
 
-        <h3 className="mt-10 text-xl font-semibold text-gray-900 mb-3">
-          Organized Inventory
-        </h3>
-        <p className="text-gray-600 leading-relaxed">
-          Papers are auto-categorized by branch, semester, subject code and exam
-          year for quick access.
-        </p>
-
-        <div className="mt-8 rounded-2xl bg-gray-50 p-4 text-sm shadow-inner">
-          📂 10,200+ papers indexed
+          <div className="grid md:grid-cols-3 gap-8">
+             <ToolCard 
+               icon={<Search className="w-6 h-6" />}
+               title="Smart Search"
+               desc="Find any paper in 0.4 seconds using our optimized indexing."
+               badge="ULTRA FAST"
+             />
+             <ToolCard 
+               icon={<BookOpen className="w-6 h-6" />}
+               title="Organized Library"
+               desc="10,000+ papers categorized by branch, year and session."
+               badge="10K+ PAPERS"
+             />
+             <ToolCard 
+               icon={<BarChart3 className="w-6 h-6" />}
+               title="Trend Analysis"
+               desc="Visual data on which subjects are the hardest and most failed."
+               badge="LIVE STATS"
+             />
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Card 3 */}
-      <div className="relative rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
-        <span className="absolute top-6 left-6 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold">
-          3
-        </span>
+      {/* Footer / CTA */}
+      <section className="py-24 bg-white text-center">
+         <div className="container mx-auto px-6">
+            <h3 className="text-3xl md:text-5xl font-black mb-8 tracking-tighter">READY TO GET AN 'O' GRADE?</h3>
+            <Link
+              to="/register"
+              className="inline-flex items-center gap-3 bg-black text-white px-12 py-6 rounded-3xl text-lg font-black shadow-2xl hover:scale-105 active:scale-95 transition-all"
+            >
+              Get Started Now <ChevronRight className="w-5 h-5" />
+            </Link>
+         </div>
+      </section>
 
-        <h3 className="mt-10 text-xl font-semibold text-gray-900 mb-3">
-          Performance Dashboard
-        </h3>
-        <p className="text-gray-600 leading-relaxed">
-          Track most searched subjects, trending exams, and paper availability
-          across branches.
-        </p>
-
-        <div className="mt-8 rounded-2xl bg-gray-50 p-4 text-sm shadow-inner">
-          📊 Updated Monthly
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-
-      {/* ================= ANIMATIONS ================= */}
       <style>
         {`
-          @keyframes fadeIn {
-            from { opacity: 0 }
-            to { opacity: 1 }
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
           }
-          @keyframes slideUp {
-            from { opacity: 0; transform: translateY(12px) }
-            to { opacity: 1; transform: translateY(0) }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
           }
         `}
       </style>
@@ -219,20 +223,36 @@ function Home() {
   );
 }
 
-function Feature({ icon, title, desc }) {
+function FeatureItem({ icon, title, desc }) {
   return (
-    <div className="group bg-white p-6 sm:p-8 rounded-xl border border-gray-100 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-gray-200">
-      <div className="text-4xl sm:text-5xl mb-4 transition-transform duration-300 group-hover:scale-105">
+    <div className="flex gap-6 items-start">
+      <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center shrink-0 border border-black/5">
         {icon}
       </div>
-      <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 tracking-tight">
-        {title}
-      </h3>
-      <p className="text-gray-600 leading-relaxed text-sm sm:text-base">
-        {desc}
-      </p>
+      <div>
+        <h4 className="text-lg font-black text-black mb-1">{title}</h4>
+        <p className="text-gray-500 font-medium text-sm leading-relaxed">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function ToolCard({ icon, title, desc, badge }) {
+  return (
+    <div className="bg-white p-10 rounded-[32px] border border-black/5 shadow-sm hover:shadow-xl transition-all group">
+      <div className="flex justify-between items-start mb-10">
+        <div className="w-14 h-14 bg-black text-white rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+          {icon}
+        </div>
+        <span className="text-[10px] font-black tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase">
+          {badge}
+        </span>
+      </div>
+      <h4 className="text-2xl font-black text-black mb-4">{title}</h4>
+      <p className="text-gray-500 font-medium leading-relaxed">{desc}</p>
     </div>
   );
 }
 
 export default Home;
+
