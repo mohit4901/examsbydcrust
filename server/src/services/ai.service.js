@@ -107,7 +107,7 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
             const matches = str.match(/\((.*?)\)/g);
             // Sanitize text: Keep only printable ASCII to prevent binary artifacts from breaking JSON
             let text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
-            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 6000);
+            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 2500);
             return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
           } catch (e) {
             return `YEAR: ${p.year} (PDF unreachable)`;
