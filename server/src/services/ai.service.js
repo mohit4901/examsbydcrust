@@ -4,15 +4,21 @@ import dotenv from "dotenv";
 import axios from "axios";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pdfRaw = require("pdf-parse");
-const pdf = typeof pdfRaw === 'function' ? pdfRaw : pdfRaw.default;
+
+// Robust PDF-parse import for ESM
+let pdf;
+try {
+  const pdfRaw = require("pdf-parse");
+  pdf = typeof pdfRaw === 'function' ? pdfRaw : pdfRaw.default || pdfRaw;
+} catch (e) {
+  console.error("Failed to load pdf-parse:", e.message);
+}
+
 import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Using 1.5-flash-latest for better stability and features
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
@@ -22,46 +28,45 @@ const extractTextFromPDF = async (url) => {
   try {
     const response = await axios.get(url, { 
       responseType: 'arraybuffer',
-      timeout: 20000 // 20s timeout for larger PDFs
+      timeout: 20000 
     });
     
-    // PDF-parse can be sensitive to empty buffers
-    if (!response.data || response.data.length === 0) {
-      return "[Empty PDF Content]";
+    if (!response.data || response.data.length === 0) return "";
+    
+    if (typeof pdf !== 'function') {
+      console.error("PDF parser is not a function. Type:", typeof pdf);
+      return "[PDF Parser Error]";
     }
 
     const data = await pdf(response.data);
-    return data.text || "[No Text Extracted]";
+    return data.text || "";
   } catch (error) {
-    console.error(`[AI PDF Error] Failed to parse PDF at ${url}:`, error.message);
-    return `[Error reading PDF: ${error.message}]`; 
+    console.error(`[PDF Error] ${url}:`, error.message);
+    return ""; 
   }
 };
 
 /**
- * Deep Analysis: Reads actual PDF content and finds repeated questions
- * This is the "Strongest Reasoning Layer" for Unit-wise Deep Analysis
+ * Deep Analysis: Using Groq (Llama 3.3 70B) for strongest reasoning and better reliability
  */
 export const getDeepAnalysis = async (subjectCode, papers) => {
   try {
-    // Filter papers to match subject code and sort by year
     const relevantPapers = papers
       .filter(p => p.subject_code.toUpperCase().replace(/\s+/g, '') === subjectCode.toUpperCase().replace(/\s+/g, ''))
       .sort((a, b) => b.year - a.year)
-      .slice(0, 3); // Using 3 papers is safer for speed and context limits
+      .slice(0, 3);
 
     if (relevantPapers.length === 0) {
-      throw new Error(`No papers found for subject code ${subjectCode} in our database.`);
+      throw new Error(`No papers found for ${subjectCode}.`);
     }
 
-    console.log(`[AI] Deep Analysis: Analyzing ${relevantPapers.length} papers for ${subjectCode}`);
+    console.log(`[AI] Deep Analysis for ${subjectCode} using Groq`);
 
-    // Fetch and parse all PDFs in parallel with a concurrency limit or just all at once for 3
     const paperTexts = await Promise.all(
       relevantPapers.map(async (p) => {
         const text = await extractTextFromPDF(p.pdf_url);
-        // Clean text to remove excessive whitespace and binary artifacts
-        const cleanText = text.replace(/\s+/g, ' ').substring(0, 15000); // Limit each paper to 15k chars for prompt safety
+        // Limit each paper to 10k chars to stay safe within Groq context (128k)
+        const cleanText = text.replace(/\s+/g, ' ').substring(0, 10000); 
         return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${cleanText}\n---`;
       })
     );
@@ -79,69 +84,53 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       Subject: ${subjectInfo ? subjectInfo.name : subjectCode} (${subjectCode})
       Units: ${subjectInfo ? subjectInfo.units.join(", ") : "Unit I, II, III, IV"}
       
-      DATA: Text from ${relevantPapers.length} Previous Year Papers.
+      DATA: Text from ${relevantPapers.length} papers.
       ${combinedText}
 
       TASK:
-      1. Map questions to Unit I, II, III, or IV.
-      2. Find EXACT repeated questions (very important).
+      1. Map questions to Units.
+      2. Find EXACT repeated questions.
       3. List high-frequency topics.
-      4. Create a specific Success Roadmap.
+      4. Create a Success Roadmap.
 
       OUTPUT FORMAT (Strict JSON):
       {
         "subject": "${subjectCode}",
         "subjectName": "${subjectInfo ? subjectInfo.name : ''}",
         "analysis": [
-          { "unit": "Unit I", "officialName": "${unit1Name}", "repeatedQuestions": [{ "question": "...", "years": [2022], "frequency": "High" }], "importantTopics": ["..."] },
+          { "unit": "Unit I", "officialName": "${unit1Name}", "repeatedQuestions": [], "importantTopics": [] },
           { "unit": "Unit II", "officialName": "${unit2Name}", "repeatedQuestions": [], "importantTopics": [] },
           { "unit": "Unit III", "officialName": "${unit3Name}", "repeatedQuestions": [], "importantTopics": [] },
           { "unit": "Unit IV", "officialName": "${unit4Name}", "repeatedQuestions": [], "importantTopics": [] }
         ],
-        "compulsorySection": ["Topics for Q1"],
-        "roadmap": "Actionable roadmap",
-        "diagrams": ["Must-draw diagrams"],
-        "expertTip": "One secret score hack"
+        "compulsorySection": [],
+        "roadmap": "",
+        "diagrams": [],
+        "expertTip": ""
       }
     `;
 
-    // Try Gemini first
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("AI returned malformed response. Please try again.");
-    }
-    
-    return JSON.parse(jsonMatch[0]);
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      response_format: { type: "json_object" }
+    });
+
+    return JSON.parse(chatCompletion.choices[0]?.message?.content);
   } catch (error) {
     console.error("[AI Deep Analysis Error]:", error);
-    throw new Error(error.message || "Deep analysis failed due to an internal server error.");
+    throw new Error(error.message || "Deep analysis failed.");
   }
 };
 
 /**
- * Get personalized study recommendations based on user's branch and semester
+ * Get personalized study recommendations
  */
 export const getStudyRecommendations = async (user, papers) => {
   try {
-    if (!papers || papers.length === 0) {
-      return {
-        summary: "Not enough papers yet.",
-        toughSubjects: ["N/A"],
-        strategy: "Keep checking.",
-        tips: ["Consistency"],
-        priorityPapers: []
-      };
-    }
+    if (!papers || papers.length === 0) return { summary: "No papers.", toughSubjects: [], strategy: "", tips: [], priorityPapers: [] };
 
-    const prompt = `
-      Analyze for ${user.name} (${user.branch}, Sem ${user.semester}):
-      Papers: ${papers.map(p => `${p.subject_name} (${p.subject_code})`).join(', ')}
-      Format as JSON: { summary, toughSubjects:[], strategy, tips:[], priorityPapers:[] }
-    `;
+    const prompt = `User: ${user.name} (${user.branch}, Sem ${user.semester}). Papers: ${papers.map(p => p.subject_name).join(', ')}. Format as JSON.`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
@@ -161,7 +150,7 @@ export const getStudyRecommendations = async (user, papers) => {
  */
 export const chatWithAI = async (message, context = "") => {
   try {
-    const prompt = `DCRUST Exam Sage. Context: ${context}. User: ${message}`;
+    const prompt = `DCRUST Sage. Context: ${context}. User: ${message}`;
     const chatCompletion = await groq.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
