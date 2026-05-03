@@ -65,8 +65,8 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       Units: ${subjectInfo ? subjectInfo.units.join(", ") : "Standard 4 Units"}
 
       TASK:
-      1. Map all questions from these PDFs to Units I, II, III, IV.
-      2. Identify repeated questions.
+      1. CRITICAL: Identify all REPEATED QUESTIONS across these years. Count their frequency and list the years.
+      2. Map all questions to Units I, II, III, IV based on the syllabus.
       3. Create a success strategy.
 
       OUTPUT FORMAT (Strict JSON):
@@ -137,7 +137,7 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       );
 
       const fallbackPrompt = `
-        TASK: Return a structured JSON analysis for DCRUST subject ${subjectCode}.
+        PRIMARY TASK: Identify EXACT REPEATED QUESTIONS across these papers. Count frequency.
         DATA EXTRACTED FROM PDFS:
         ${fallbackTexts.join("\n")}
 
