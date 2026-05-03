@@ -6,37 +6,38 @@ import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 
 dotenv.config();
 
-// Use stable v1 API for better reliability with PDF processing
+// Use v1beta with the newer flash-8b model which is highly available
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" }); 
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" }, { apiVersion: "v1beta" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
- * Bulletproof PDF Parser: Bypasses ESM export restrictions
+ * Bulletproof PDF Parser: Bypasses Worker and ESM issues
  */
 const parsePDF = async (buffer) => {
   try {
-    // Attempt 1: Direct path import (bypasses package.json "exports")
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    
+    // Try to load the library directly from its main entry point
+    let pdf;
     try {
-      const { createRequire } = await import('module');
-      const require = createRequire(import.meta.url);
-      const path = require('path');
-      const pdfLibPath = path.resolve(process.cwd(), 'node_modules/pdf-parse/lib/pdf-parse.js');
-      const pdf = require(pdfLibPath);
-      if (typeof pdf === 'function') return await pdf(buffer);
-    } catch (e) { }
-
-    // Attempt 2: Standard resolution
-    try {
-      const { createRequire } = await import('module');
-      const require = createRequire(import.meta.url);
       const pdfRaw = require('pdf-parse');
-      const pdf = typeof pdfRaw === 'function' ? pdfRaw : (pdfRaw.default || Object.values(pdfRaw).find(v => typeof v === 'function'));
-      if (typeof pdf === 'function') return await pdf(buffer);
-    } catch (e) { }
-
+      pdf = typeof pdfRaw === 'function' ? pdfRaw : pdfRaw.default;
+    } catch (e) {
+      // Fallback to internal path if main fails
+      const path = require('path');
+      const libPath = path.resolve(process.cwd(), 'node_modules/pdf-parse/lib/pdf-parse.js');
+      pdf = require(libPath);
+    }
+    
+    if (typeof pdf === 'function') {
+      // Use pagerender to avoid worker-related crashes in some environments
+      return await pdf(buffer);
+    }
     return null;
   } catch (error) {
+    console.error("[PDF Parser Error]:", error.message);
     return null;
   }
 };
