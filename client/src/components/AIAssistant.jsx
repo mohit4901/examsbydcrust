@@ -6,6 +6,47 @@ import { AuthContext } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
 
+const FormattedText = ({ text }) => {
+  if (!text) return null;
+  
+  // Split by newlines and handle basic markdown
+  const lines = text.split('\n');
+  
+  return (
+    <div className="space-y-2">
+      {lines.map((line, i) => {
+        // Handle headers/bold titles
+        if (line.startsWith('**') && line.endsWith('**')) {
+          return <h4 key={i} className="text-white font-black mt-4 mb-2 uppercase tracking-wider text-xs">{line.replace(/\*\*/g, '')}</h4>;
+        }
+        
+        // Handle bullet points
+        if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
+          return (
+            <div key={i} className="flex gap-2 ml-2">
+              <div className="w-1.5 h-1.5 bg-white/40 rounded-full mt-1.5 shrink-0" />
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {line.trim().substring(2).split('**').map((part, j) => 
+                  j % 2 === 1 ? <b key={j} className="text-white font-bold">{part}</b> : part
+                )}
+              </p>
+            </div>
+          );
+        }
+
+        // Handle normal lines with bold parts
+        return (
+          <p key={i} className="text-sm text-gray-300 leading-relaxed min-h-[1em]">
+            {line.split('**').map((part, j) => 
+              j % 2 === 1 ? <b key={j} className="text-white font-bold">{part}</b> : part
+            )}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 const AIAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -60,36 +101,52 @@ const AIAssistant = () => {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="absolute bottom-20 right-0 w-[350px] md:w-[400px] h-[500px] bg-[#1f1f1f] border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+            className="absolute bottom-20 right-0 w-[350px] md:w-[450px] h-[600px] bg-[#1a1a1a] border border-white/10 rounded-[32px] shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="p-4 bg-white text-black flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5" />
-                <span className="font-black text-sm uppercase tracking-widest">Exam Sage AI</span>
+            <div className="p-6 bg-white text-black flex items-center justify-between shadow-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-black rounded-2xl flex items-center justify-center text-white">
+                  <Sparkles className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <span className="font-black text-sm uppercase tracking-widest block">Exam Sage</span>
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-[8px] font-black uppercase tracking-tighter opacity-40 italic">Llama 3.3 Active</span>
+                  </div>
+                </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="hover:rotate-90 transition-transform">
+              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-black/5 rounded-full transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-gradient-to-b from-white/[0.02] to-transparent">
               {messages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-medium ${
+                  <div className={`max-w-[85%] p-5 rounded-[24px] shadow-xl ${
                     msg.role === 'user' 
-                      ? 'bg-white text-black' 
-                      : 'bg-white/5 text-gray-300 border border-white/5'
+                      ? 'bg-white text-black font-bold text-sm rounded-tr-none' 
+                      : 'bg-[#252525] text-gray-300 border border-white/5 rounded-tl-none'
                   }`}>
-                    {msg.content}
+                    {msg.role === 'assistant' ? (
+                      <FormattedText text={msg.content} />
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}
               {loading && (
                 <div className="flex justify-start">
-                  <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <div className="bg-[#252525] p-5 rounded-[24px] border border-white/5 animate-pulse">
+                    <div className="flex gap-1">
+                      <div className="w-1 h-1 bg-white/40 rounded-full animate-bounce" />
+                      <div className="w-1 h-1 bg-white/40 rounded-full animate-bounce [animation-delay:0.2s]" />
+                      <div className="w-1 h-1 bg-white/40 rounded-full animate-bounce [animation-delay:0.4s]" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -97,20 +154,20 @@ const AIAssistant = () => {
             </div>
 
             {/* Input */}
-            <form onSubmit={handleSend} className="p-4 bg-white/5 border-t border-white/5 flex gap-2">
+            <form onSubmit={handleSend} className="p-6 bg-[#1a1a1a] border-t border-white/5 flex gap-3">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask anything..."
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-white/20 text-white"
+                placeholder="Ask Mohit about Waterfall model..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-white/30 text-white placeholder:text-white/20"
               />
               <button 
                 type="submit" 
                 disabled={loading}
-                className="p-2 bg-white text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                className="w-12 h-12 bg-white text-black rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-xl"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-5 h-5" />
               </button>
             </form>
           </motion.div>
