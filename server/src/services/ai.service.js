@@ -38,13 +38,13 @@ const callNVIDIA = async (prompt) => {
 };
 
 /**
- * Bulletproof PDF Parser: Bypasses Worker and ESM issues using eval-require
+ * Bulletproof PDF Parser: ESM compatible require
  */
 const parsePDF = async (buffer) => {
   try {
-    // Ultimate hack to load CJS in ESM on Render
-    const req = typeof require !== 'undefined' ? require : eval('require');
-    const pdf = req('pdf-parse');
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const pdf = require('pdf-parse');
     
     if (typeof pdf === 'function') {
       return await pdf(buffer);
