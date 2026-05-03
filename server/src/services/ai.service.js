@@ -12,32 +12,22 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" }, { apiVe
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
- * Bulletproof PDF Parser: Bypasses Worker and ESM issues
+ * Bulletproof PDF Parser: Bypasses Worker and ESM issues using eval-require
  */
 const parsePDF = async (buffer) => {
   try {
-    const { createRequire } = await import('module');
-    const require = createRequire(import.meta.url);
-    
-    // Try to load the library directly from its main entry point
-    let pdf;
-    try {
-      const pdfRaw = require('pdf-parse');
-      pdf = typeof pdfRaw === 'function' ? pdfRaw : pdfRaw.default;
-    } catch (e) {
-      // Fallback to internal path if main fails
-      const path = require('path');
-      const libPath = path.resolve(process.cwd(), 'node_modules/pdf-parse/lib/pdf-parse.js');
-      pdf = require(libPath);
-    }
+    // Ultimate hack to load CJS in ESM on Render
+    const req = typeof require !== 'undefined' ? require : eval('require');
+    const pdf = req('pdf-parse');
     
     if (typeof pdf === 'function') {
-      // Use pagerender to avoid worker-related crashes in some environments
       return await pdf(buffer);
+    } else if (pdf && typeof pdf.default === 'function') {
+      return await pdf.default(buffer);
     }
     return null;
   } catch (error) {
-    console.error("[PDF Parser Error]:", error.message);
+    console.error("[PDF Parser Fatal]:", error.message);
     return null;
   }
 };
