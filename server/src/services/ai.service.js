@@ -3,16 +3,16 @@ import Groq from "groq-sdk";
 import dotenv from "dotenv";
 import axios from "axios";
 import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
+import { extractRawText } from "../utils/pdf-extractor.js";
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Use gemini-1.5-flash with v1 for maximum stability
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
- * NVIDIA NIM Integration (High Quality Reasoning Fallback)
+ * NVIDIA NIM Integration (High Quality Reasoning)
  */
 const callNVIDIA = async (prompt) => {
   try {
@@ -61,48 +61,38 @@ const parsePDF = async (buffer) => {
 };
 
 /**
- * Fetch PDF as Base64 for Gemini
- */
-const fetchPDFAsBase64 = async (url) => {
-  try {
-    const response = await axios.get(url, { 
-      responseType: 'arraybuffer',
-      timeout: 15000 
-    });
-    return Buffer.from(response.data).toString("base64");
-  } catch (error) {
-    console.error(`[PDF Fetch Error] ${url}:`, error.message);
-    return null;
-  }
-};
-
-/**
- * Stage 1: Extraction (Using Gemini 1.5 Flash - Direct REST API)
+ * Stage 1: Extraction (Using Custom Extractor + Gemini Fallback)
  */
 const extractTextFromPDF = async (url) => {
   try {
-    const base64 = await fetchPDFAsBase64(url);
-    if (!base64) return null;
-
-    const prompt = "Extract all text from this exam paper. Include questions and units. Return raw text only.";
+    const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
+    const buffer = Buffer.from(response.data);
     
-    // Direct REST API call to bypass SDK issues
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: "application/pdf", data: base64 } }
-          ]
-        }]
-      },
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    // Use our custom zero-dependency extractor
+    let text = extractRawText(buffer);
+    
+    // If custom extractor gets nothing, try Gemini as a secondary fallback
+    if (!text || text.length < 100) {
+      try {
+        const base64 = buffer.toString("base64");
+        const geminiRes = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          {
+            contents: [{
+              parts: [
+                { text: "Extract all text from this exam paper." },
+                { inline_data: { mime_type: "application/pdf", data: base64 } }
+              ]
+            }]
+          },
+          { timeout: 15000 }
+        );
+        text = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || text;
+      } catch (e) { }
+    }
 
-    return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    return text;
   } catch (error) {
-    console.warn(`[Extraction Error] ${url}:`, error.response?.data || error.message);
     return null;
   }
 };
