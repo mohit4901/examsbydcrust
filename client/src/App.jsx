@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import AIAssistant from './components/AIAssistant';
 import GraphyFooterCTA from './components/Footer';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import { Toaster } from 'sonner';
@@ -49,6 +50,7 @@ function AppContent() {
           </Routes>
         </Suspense>
       </div>
+      <AIAssistant />
       <GraphyFooterCTA />
     </div>
   );

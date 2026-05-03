@@ -23,6 +23,23 @@ const Profile = () => {
   const { user } = useContext(AuthContext);
   const [myPapers, setMyPapers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [aiInsights, setAiInsights] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const fetchAIInsights = async () => {
+    setAiLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/ai/insights`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAiInsights(res.data.data);
+    } catch (error) {
+      console.error("AI Insights failed:", error);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchMyPapers = async () => {
@@ -82,6 +99,102 @@ const Profile = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Personalized Analysis */}
         <div className="lg:col-span-2 space-y-8">
+          <section className="bg-gradient-to-br from-white/5 to-transparent p-1 rounded-3xl border border-white/5 overflow-hidden">
+            <div className="bg-[#1f1f1f] rounded-[22px] p-8">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white text-black rounded-2xl flex items-center justify-center shadow-lg">
+                    <Star className="w-6 h-6 fill-current" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black">AI Reasoning Engine</h2>
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Powered by Gemini 1.5 Flash</p>
+                  </div>
+                </div>
+                {!aiInsights && !aiLoading && (
+                  <button 
+                    onClick={fetchAIInsights}
+                    className="bg-white text-black px-6 py-3 rounded-2xl font-black hover:scale-105 active:scale-95 transition-all text-sm shadow-xl"
+                  >
+                    Start Analysis
+                  </button>
+                )}
+              </div>
+
+              {aiLoading ? (
+                <div className="space-y-4 animate-pulse">
+                  <div className="h-4 bg-white/5 rounded w-3/4" />
+                  <div className="h-4 bg-white/5 rounded w-1/2" />
+                  <div className="h-24 bg-white/5 rounded mt-6" />
+                </div>
+              ) : aiInsights ? (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="space-y-8"
+                >
+                  <div className="p-6 bg-white/5 rounded-3xl border border-white/5 leading-relaxed text-gray-300 italic">
+                    "{aiInsights.summary}"
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-black text-gray-400 uppercase tracking-tighter flex items-center gap-2">
+                        <Book className="w-4 h-4" />
+                        Subjects to Prioritize
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {aiInsights.toughSubjects.map(sub => (
+                          <span key={sub} className="bg-red-500/10 text-red-400 px-4 py-2 rounded-xl text-xs font-bold border border-red-500/20">
+                            {sub}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-black text-gray-400 uppercase tracking-tighter flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        Priority Papers
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {aiInsights.priorityPapers.map(code => (
+                          <span key={code} className="bg-white/10 text-white px-4 py-2 rounded-xl text-xs font-bold border border-white/10">
+                            {code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-8 bg-white text-black rounded-3xl">
+                    <h3 className="text-lg font-black mb-4 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      Actionable Strategy
+                    </h3>
+                    <p className="text-sm font-medium mb-6 leading-relaxed opacity-80">
+                      {aiInsights.strategy}
+                    </p>
+                    <div className="grid grid-cols-1 gap-3">
+                      {aiInsights.tips.map((tip, idx) => (
+                        <div key={idx} className="flex gap-4 items-start p-4 bg-black/5 rounded-2xl">
+                          <div className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                            {idx + 1}
+                          </div>
+                          <p className="text-sm font-bold opacity-70">{tip}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="text-center py-12 border border-dashed border-white/10 rounded-3xl">
+                  <p className="text-gray-500 font-bold italic">Click "Start Analysis" to generate your personalized study plan.</p>
+                </div>
+              )}
+            </div>
+          </section>
+
           <section>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-black flex items-center gap-2">
@@ -204,19 +317,24 @@ const Profile = () => {
 
 const sem1Subjects = [
   { code: "HUM101C", name: "English Language Skills" },
-  { code: "MATH101C", name: "Mathematics - I (CSE)" },
+  { code: "MATH101C", name: "Mathematics - I" },
   { code: "CH101C", name: "Physics / Chemistry" },
-  { code: "CSE101C", name: "Programming for Problem Solving" },
   { code: "EE101C", name: "Basic Electrical Engineering" },
+  { code: "CSE101C", name: "Programming for Problem Solving" },
   { code: "ME101C", name: "Engineering Graphics & Design" },
+  { code: "ME103C", name: "Manufacturing Practices" },
+  { code: "HUM103C", name: "English Language Lab" },
 ];
 
 const sem2Subjects = [
   { code: "HUM101C", name: "English Language Skills" },
-  { code: "MATH102C", name: "Mathematics - II (CSE)" },
-  { code: "CH101C", name: "Physics / Chemistry" },
+  { code: "MATH102C", name: "Mathematics - II" },
+  { code: "CH101C", name: "Chemistry / Physics" },
+  { code: "EE101C", name: "Basic Electrical Engineering" },
+  { code: "CSE101C", name: "Programming for Problem Solving" },
+  { code: "ME101C", name: "Engineering Graphics & Design" },
+  { code: "ME103C", name: "Manufacturing Practices" },
   { code: "CSE103C", name: "Programming Lab" },
-  { code: "ME103C", name: "Workshop Practices" },
 ];
 
 export default Profile;

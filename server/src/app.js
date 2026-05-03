@@ -9,6 +9,7 @@ import connectDB from './config/db.js';
 import paperRoutes from './routes/paper.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import statsRoutes from './routes/stats.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use(morgan('dev'));
 app.use('/api/papers', paperRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Welcome routes
 app.get('/', (req, res) => {
