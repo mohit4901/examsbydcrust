@@ -96,21 +96,42 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
     } catch (geminiError) {
       console.warn("[AI] Gemini failed or 404, falling back to Llama 3.3 70B");
       
-      // Fallback Strategy: Groq + Simplified Text Extraction
+      // Fallback Strategy: Multi-level PDF Parser Resolver + Groq
       const fallbackTexts = await Promise.all(
         relevantPapers.map(async (p) => {
           try {
-            const response = await axios.get(p.pdf_url, { responseType: 'arraybuffer', timeout: 10000 });
+            const response = await axios.get(p.pdf_url, { responseType: 'arraybuffer', timeout: 15000 });
             const buffer = Buffer.from(response.data);
-            const str = buffer.toString('utf-8');
-            // Extract raw strings from PDF binary - works surprisingly well for text-based PDFs
-            const matches = str.match(/\((.*?)\)/g);
-            // Sanitize text: Keep only printable ASCII to prevent binary artifacts from breaking JSON
-            let text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
-            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 2500);
+            
+            let text = "";
+            try {
+              // Try to resolve pdf-parse in ESM/CJS interop environment
+              const { createRequire } = await import('module');
+              const require = createRequire(import.meta.url);
+              const pdfRaw = require('pdf-parse');
+              
+              // Find the actual function (sometimes it's .default, sometimes it's the object itself)
+              const pdf = typeof pdfRaw === 'function' ? pdfRaw : (pdfRaw.default || Object.values(pdfRaw).find(v => typeof v === 'function'));
+              
+              if (typeof pdf === 'function') {
+                const data = await pdf(buffer);
+                text = data.text;
+              } else {
+                throw new Error("Parser not found");
+              }
+            } catch (parserError) {
+              console.warn(`[AI PDF] Library parser failed for ${p.year}, using regex fallback`);
+              // Regex fallback for text extraction from binary
+              const str = buffer.toString('utf-8');
+              const matches = str.match(/\((.*?)\)/g);
+              text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
+            }
+
+            // Sanitize and limit
+            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 4000);
             return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
           } catch (e) {
-            return `YEAR: ${p.year} (PDF unreachable)`;
+            return `YEAR: ${p.year} (Unreachable: ${e.message})`;
           }
         })
       );
