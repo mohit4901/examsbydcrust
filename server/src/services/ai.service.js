@@ -89,33 +89,58 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
     try {
       const result = await model.generateContent([prompt, ...validParts]);
       const response = await result.response;
-      return JSON.parse(response.text().match(/\{[\s\S]*\}/)[0]);
+      const text = response.text();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Malformed AI response");
+      return JSON.parse(jsonMatch[0]);
     } catch (geminiError) {
-      console.warn("[AI] Gemini failed, falling back to Llama 3.3 70B with text extraction hack");
+      console.warn("[AI] Gemini failed or 404, falling back to Llama 3.3 70B");
       
-      // Fallback: If Gemini fails, we use Groq with a basic text extraction
+      // Fallback Strategy: Groq + Simplified Text Extraction
       const fallbackTexts = await Promise.all(
         relevantPapers.map(async (p) => {
-          const response = await axios.get(p.pdf_url, { responseType: 'arraybuffer' });
-          const buffer = Buffer.from(response.data);
-          // Very basic text extraction from PDF binary (finding strings in parentheses)
-          const str = buffer.toString('utf-8');
-          const matches = str.match(/\((.*?)\)/g);
-          const text = matches ? matches.map(m => m.slice(1, -1)).join(' ').substring(0, 8000) : "PDF data hidden";
-          return `YEAR: ${p.year}\nCONTENT: ${text}\n---`;
+          try {
+            const response = await axios.get(p.pdf_url, { responseType: 'arraybuffer', timeout: 10000 });
+            const buffer = Buffer.from(response.data);
+            const str = buffer.toString('utf-8');
+            // Extract raw strings from PDF binary - works surprisingly well for text-based PDFs
+            const matches = str.match(/\((.*?)\)/g);
+            const text = matches ? matches.map(m => m.slice(1, -1)).join(' ').substring(0, 10000) : "";
+            return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
+          } catch (e) {
+            return `YEAR: ${p.year} (PDF unreachable)`;
+          }
         })
       );
 
+      const fallbackPrompt = `${prompt}\n\nDATA EXTRACTED FROM PDFS:\n${fallbackTexts.join("\n")}\n\nIMPORTANT: If the data is empty, do not hallucinate questions. Instead, provide a generic but high-quality study strategy for this subject.`;
+
       const fallbackCompletion = await groq.chat.completions.create({
-        messages: [{ role: "user", content: prompt + "\n\nDATA:\n" + fallbackTexts.join("\n") }],
+        messages: [{ role: "user", content: fallbackPrompt }],
         model: "llama-3.3-70b-versatile",
         response_format: { type: "json_object" }
       });
+
       return JSON.parse(fallbackCompletion.choices[0]?.message?.content);
     }
   } catch (error) {
-    console.error("[AI Deep Analysis Error]:", error);
-    throw new Error("Deep analysis service is currently under maintenance. Please try again later.");
+    console.error("[AI Deep Analysis Fatal Error]:", error);
+    // Return a valid empty structure instead of throwing 500 to prevent frontend crash
+    const subjectInfo = getSubjectInfo(subjectCode);
+    return {
+      subject: subjectCode,
+      subjectName: subjectInfo?.name || subjectCode,
+      analysis: [
+        { unit: "Unit I", officialName: "Unit I", repeatedQuestions: [], importantTopics: [] },
+        { unit: "Unit II", officialName: "Unit II", repeatedQuestions: [], importantTopics: [] },
+        { unit: "Unit III", officialName: "Unit III", repeatedQuestions: [], importantTopics: [] },
+        { unit: "Unit IV", officialName: "Unit IV", repeatedQuestions: [], importantTopics: [] }
+      ],
+      compulsorySection: [],
+      roadmap: "Our AI engine is temporarily overloaded. Please try again in a few minutes for a detailed analysis.",
+      diagrams: [],
+      expertTip: "Focus on the most recent 2 years' papers for now."
+    };
   }
 };
 

@@ -562,7 +562,7 @@ const Profile = () => {
               ) : deepAnalysis ? (
                 <div className="space-y-10">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {deepAnalysis.analysis.map((unit, idx) => (
+                    {deepAnalysis?.analysis?.map((unit, idx) => (
                       <div key={idx} className="p-8 bg-white/5 rounded-[32px] border border-white/5 hover:border-white/10 transition-all">
                         <div className="flex justify-between items-center mb-6">
                           <span className="text-xs font-black text-gray-500 uppercase tracking-widest">{unit.unit}</span>
@@ -574,11 +574,11 @@ const Profile = () => {
                             <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-4">Repeated Questions</h4>
                             {unit.repeatedQuestions.length > 0 ? (
                               <div className="space-y-3">
-                                {unit.repeatedQuestions.map((q, qIdx) => (
+                                {unit?.repeatedQuestions?.map((q, qIdx) => (
                                   <div key={qIdx} className="p-4 bg-white/5 rounded-2xl border border-white/5 group">
                                     <p className="text-sm font-bold mb-2 leading-relaxed">{q.question}</p>
                                     <div className="flex gap-2">
-                                      {q.years.map(y => (
+                                      {q?.years?.map(y => (
                                         <span key={y} className="text-[10px] bg-white text-black px-2 py-0.5 rounded-lg font-black">{y}</span>
                                       ))}
                                       <span className="ml-auto text-[10px] text-yellow-500 font-black uppercase tracking-tighter">🔥 {q.frequency}</span>
@@ -594,7 +594,7 @@ const Profile = () => {
                           <div>
                             <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-3">Important Topics</h4>
                             <div className="flex flex-wrap gap-2">
-                              {unit.importantTopics.map(t => (
+                              {unit?.importantTopics?.map(t => (
                                 <span key={t} className="px-3 py-1.5 bg-white/5 rounded-xl text-[10px] font-black text-gray-400 border border-white/5">
                                   {t}
                                 </span>
@@ -630,7 +630,7 @@ const Profile = () => {
                       <div className="p-8 bg-white/5 rounded-[40px] border border-white/10">
                         <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">Must Draw Diagrams</h3>
                         <div className="space-y-3">
-                          {deepAnalysis.diagrams.map(d => (
+                          {deepAnalysis?.diagrams?.map(d => (
                             <div key={d} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
                               <div className="w-2 h-2 bg-white/20 rounded-full" />
                               <span className="text-xs font-bold text-gray-300">{d}</span>
