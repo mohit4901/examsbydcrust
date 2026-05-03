@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
 import axios from "axios";
-import pdf from "pdf-parse/lib/pdf-parse.js";
+import pdf from "pdf-parse";
 import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 
 dotenv.config();
