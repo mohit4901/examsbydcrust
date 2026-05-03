@@ -107,7 +107,7 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
             const matches = str.match(/\((.*?)\)/g);
             // Sanitize text: Keep only printable ASCII to prevent binary artifacts from breaking JSON
             let text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
-            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 10000);
+            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 6000);
             return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
           } catch (e) {
             return `YEAR: ${p.year} (PDF unreachable)`;
@@ -120,7 +120,7 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
         DATA EXTRACTED FROM PDFS:
         ${fallbackTexts.join("\n")}
 
-        REQUIRED JSON FORMAT:
+        REQUIRED JSON FORMAT (Strictly return only this):
         {
           "subject": "${subjectCode}",
           "subjectName": "${subjectInfo?.name || subjectCode}",
@@ -136,19 +136,17 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
           "expertTip": ""
         }
 
-        IMPORTANT: Return ONLY the JSON object. Do not include any markdown blocks or extra text. If no data exists, do not hallucinate; provide a high-level strategy based on the subject name.
+        IMPORTANT: Return ONLY the JSON object. Do not include markdown blocks.
       `;
 
       const fallbackCompletion = await groq.chat.completions.create({
         messages: [{ role: "user", content: fallbackPrompt }],
         model: "llama-3.3-70b-versatile",
-        // Removing strict json_object mode as it sometimes fails on Llama when the prompt has complex data
-        // response_format: { type: "json_object" } 
+        max_tokens: 4096, // Increase max tokens to ensure full JSON generation
+        response_format: { type: "json_object" } 
       });
 
-      const responseText = fallbackCompletion.choices[0]?.message?.content;
-      const cleanJsonMatch = responseText.match(/\{[\s\S]*\}/);
-      return JSON.parse(cleanJsonMatch ? cleanJsonMatch[0] : responseText);
+      return JSON.parse(fallbackCompletion.choices[0]?.message?.content);
     }
   } catch (error) {
     console.error("[AI Deep Analysis Fatal Error]:", error);
