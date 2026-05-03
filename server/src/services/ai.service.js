@@ -231,7 +231,6 @@ export const getStudyRecommendations = async (user, papers) => {
 export const chatWithAI = async (message, context = "") => {
   try {
     const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: chatCompletion }], // Fix: message should be here
       messages: [{ role: "user", content: `Sage. Context: ${context}. User: ${message}` }],
       model: "llama-3.3-70b-versatile",
     });
