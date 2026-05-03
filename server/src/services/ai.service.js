@@ -6,9 +6,9 @@ import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 
 dotenv.config();
 
-// Attempt to use v1 API version which is more stable for flash models
+// Use stable v1 API for better reliability with PDF processing
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
@@ -127,8 +127,8 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
               text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
             }
 
-            // Sanitize and limit
-            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 4000);
+            // Strictly limit to 1500 chars to stay under 12k TPM Groq limit
+            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 1500);
             return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
           } catch (e) {
             return `YEAR: ${p.year} (Unreachable: ${e.message})`;
