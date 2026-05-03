@@ -7,7 +7,8 @@ import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" }, { apiVersion: "v1beta" }); 
+// Use gemini-1.5-flash with v1 for maximum stability
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
@@ -27,7 +28,8 @@ const callNVIDIA = async (prompt) => {
         headers: {
           "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
           "Content-Type": "application/json"
-        }
+        },
+        timeout: 20000
       }
     );
     return JSON.parse(response.data.choices[0].message.content);
@@ -65,7 +67,7 @@ const fetchPDFAsBase64 = async (url) => {
   try {
     const response = await axios.get(url, { 
       responseType: 'arraybuffer',
-      timeout: 25000 
+      timeout: 15000 
     });
     return Buffer.from(response.data).toString("base64");
   } catch (error) {
@@ -82,7 +84,7 @@ const extractTextFromPDF = async (url) => {
     const base64 = await fetchPDFAsBase64(url);
     if (!base64) return null;
 
-    const prompt = "Extract all text from this exam paper. Include questions, units, and marks. Return raw text only.";
+    const prompt = "Extract all text from this exam paper. Include questions and units. Return raw text only.";
     const result = await model.generateContent([
       prompt,
       { inlineData: { data: base64, mimeType: "application/pdf" } }
@@ -102,6 +104,8 @@ const extractTextFromPDF = async (url) => {
  * Stage 3: Groq (Verification & JSON Formatting)
  */
 export const getDeepAnalysis = async (subjectCode, papers) => {
+  const subjectInfo = getSubjectInfo(subjectCode);
+  
   try {
     const relevantPapers = papers
       .filter(p => p.subject_code.toUpperCase().replace(/\s+/g, '') === subjectCode.toUpperCase().replace(/\s+/g, ''))
@@ -123,8 +127,6 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
     const fullRawText = extractedTexts.filter(t => t !== null).join("\n");
     if (!fullRawText) throw new Error("Could not extract text from any papers.");
 
-    const subjectInfo = getSubjectInfo(subjectCode);
-    
     // STAGE 2: Deep Analysis using NVIDIA Llama 3.1 405B
     console.log("[AI Pipeline] Stage 2: NVIDIA (Deep Reasoning)");
     const analysisPrompt = `
@@ -154,7 +156,7 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
 
     let finalResult = await callNVIDIA(analysisPrompt);
 
-    // STAGE 3: Final Verification & Formatting using Groq (if NVIDIA fails or for double check)
+    // STAGE 3: Final Verification & Formatting using Groq
     if (!finalResult) {
       console.log("[AI Pipeline] Stage 3: Groq (Fallback Analysis)");
       const groqCompletion = await groq.chat.completions.create({
@@ -172,15 +174,13 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       subject: subjectCode,
       subjectName: subjectInfo?.name || subjectCode,
       analysis: [
-        { unit: "Unit I", officialName: "Unit I", repeatedQuestions: [], importantTopics: [] },
-        { unit: "Unit II", officialName: "Unit II", repeatedQuestions: [], importantTopics: [] },
-        { unit: "Unit III", officialName: "Unit III", repeatedQuestions: [], importantTopics: [] },
-        { unit: "Unit IV", officialName: "Unit IV", repeatedQuestions: [], importantTopics: [] }
+        { unit: "Unit I", repeatedQuestions: [], importantTopics: ["Could not extract paper text. Check PDF availability."] },
+        { unit: "Unit II", repeatedQuestions: [], importantTopics: [] },
+        { unit: "Unit III", repeatedQuestions: [], importantTopics: [] },
+        { unit: "Unit IV", repeatedQuestions: [], importantTopics: [] }
       ],
-      compulsorySection: [],
-      roadmap: "Our AI engine is temporarily overloaded. Please try again in a few minutes for a detailed analysis.",
-      diagrams: [],
-      expertTip: "Focus on the most recent 2 years' papers for now."
+      roadmap: "Our AI pipeline encountered an issue reading the source PDFs. Please try again later.",
+      expertTip: "Try a different subject code or check if papers are available."
     };
   }
 };
