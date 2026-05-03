@@ -96,30 +96,35 @@ export const getMe = async (req, res) => {
 // @access  Private
 export const updateProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    // Fetch user without exclusion to ensure save() doesn't affect other fields
+    const user = await User.findById(req.user._id);
 
-    if (user) {
-      user.name = req.body.name || user.name;
-      user.branch = req.body.branch || user.branch;
-      user.semester = req.body.semester || user.semester;
-
-      if (req.body.password) {
-        user.password = req.body.password;
-      }
-
-      const updatedUser = await user.save();
-
-      res.json({
-        _id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        branch: updatedUser.branch,
-        semester: updatedUser.semester,
-      });
-    } else {
-      res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
+
+    if (req.body.name) user.name = req.body.name.trim();
+    if (req.body.branch) user.branch = req.body.branch;
+    if (req.body.semester !== undefined) {
+      const sem = parseInt(req.body.semester);
+      if (!isNaN(sem)) user.semester = sem;
+    }
+
+    if (req.body.password && req.body.password.length >= 6) {
+      user.password = req.body.password;
+    }
+
+    const updatedUser = await user.save();
+
+    res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      branch: updatedUser.branch,
+      semester: updatedUser.semester,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[Update Profile Error]:', error);
+    res.status(500).json({ error: 'Failed to update profile: ' + error.message });
   }
 };
