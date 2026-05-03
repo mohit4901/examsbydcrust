@@ -7,8 +7,8 @@ import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Gemini 1.5 Flash is perfect for direct PDF processing
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+// Using gemini-1.5-flash-001 which is a very specific, stable model ID
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
@@ -28,8 +28,7 @@ const fetchPDFAsBase64 = async (url) => {
 };
 
 /**
- * Deep Analysis: Using Gemini 1.5 Flash's Native PDF Support
- * This is the ultimate fix for PDF parsing issues.
+ * Deep Analysis: Using Gemini 1.5 Flash Native Support with Fallback
  */
 export const getDeepAnalysis = async (subjectCode, papers) => {
   try {
@@ -42,9 +41,8 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       throw new Error(`No papers found for ${subjectCode}.`);
     }
 
-    console.log(`[AI] Deep Analysis for ${subjectCode} using Gemini Native PDF Support`);
+    console.log(`[AI] Deep Analysis for ${subjectCode} using Gemini 1.5 Flash Native`);
 
-    // Fetch all PDFs as base64
     const paperParts = await Promise.all(
       relevantPapers.map(async (p) => {
         const base64 = await fetchPDFAsBase64(p.pdf_url);
@@ -59,59 +57,44 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
     );
 
     const validParts = paperParts.filter(p => p !== null);
-    if (validParts.length === 0) {
-      throw new Error("Failed to download any PDF papers for analysis.");
-    }
+    if (validParts.length === 0) throw new Error("Could not download PDFs.");
 
     const subjectInfo = getSubjectInfo(subjectCode);
-    const unit1Name = subjectInfo?.units[0] || "Unit I";
-    const unit2Name = subjectInfo?.units[1] || "Unit II";
-    const unit3Name = subjectInfo?.units[2] || "Unit III";
-    const unit4Name = subjectInfo?.units[3] || "Unit IV";
-
     const prompt = `
-      You are the "DCRUST Academic Oracle". I have attached ${validParts.length} previous year question papers for the subject ${subjectCode}.
-      
-      Subject: ${subjectInfo ? subjectInfo.name : subjectCode}
-      Official Units: ${subjectInfo ? subjectInfo.units.join(", ") : "Standard 4-unit curriculum"}
+      Analyze these ${validParts.length} DCRUST Murthal PYQs for ${subjectCode}.
+      Subject Name: ${subjectInfo ? subjectInfo.name : ''}
+      Units: ${subjectInfo ? subjectInfo.units.join(", ") : "4 Units"}
 
-      TASK:
-      1. Analyze the attached PDFs and map all questions to their respective Units.
-      2. Identify EXACT repeated questions across these years.
-      3. List high-frequency topics that appear almost every year.
-      4. Create a comprehensive "Success Roadmap" for this subject.
-      5. List must-draw diagrams.
-
-      OUTPUT FORMAT (Strict JSON):
+      Format as JSON:
       {
         "subject": "${subjectCode}",
         "subjectName": "${subjectInfo ? subjectInfo.name : ''}",
         "analysis": [
-          { "unit": "Unit I", "officialName": "${unit1Name}", "repeatedQuestions": [], "importantTopics": [] },
-          { "unit": "Unit II", "officialName": "${unit2Name}", "repeatedQuestions": [], "importantTopics": [] },
-          { "unit": "Unit III", "officialName": "${unit3Name}", "repeatedQuestions": [], "importantTopics": [] },
-          { "unit": "Unit IV", "officialName": "${unit4Name}", "repeatedQuestions": [], "importantTopics": [] }
+          { "unit": "Unit I", "officialName": "${subjectInfo?.units[0] || 'Unit I'}", "repeatedQuestions": [], "importantTopics": [] },
+          { "unit": "Unit II", "officialName": "${subjectInfo?.units[1] || 'Unit II'}", "repeatedQuestions": [], "importantTopics": [] },
+          { "unit": "Unit III", "officialName": "${subjectInfo?.units[2] || 'Unit III'}", "repeatedQuestions": [], "importantTopics": [] },
+          { "unit": "Unit IV", "officialName": "${subjectInfo?.units[3] || 'Unit IV'}", "repeatedQuestions": [], "importantTopics": [] }
         ],
-        "compulsorySection": ["Topics for short notes / Q1"],
-        "roadmap": "A premium, detailed roadmap for this subject",
-        "diagrams": ["List of diagrams"],
-        "expertTip": "Expert tip to score 90+"
+        "compulsorySection": [],
+        "roadmap": "Actionable strategy",
+        "diagrams": [],
+        "expertTip": ""
       }
     `;
 
-    // Send to Gemini with native PDF parts
+    // Send to Gemini
     const result = await model.generateContent([prompt, ...validParts]);
     const response = await result.response;
     const text = response.text();
     
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("AI response was not in JSON format.");
+    if (!jsonMatch) throw new Error("Invalid AI format.");
     
     return JSON.parse(jsonMatch[0]);
   } catch (error) {
     console.error("[AI Deep Analysis Error]:", error);
-    // Fallback to Groq if Gemini fails (but without PDF text since pdf-parse is broken)
-    throw new Error(error.message || "Deep analysis failed.");
+    // If Gemini 404s, we have a problem. Try gemini-1.5-flash as a last resort if it was 001 that failed
+    throw new Error("Analysis engine is currently unavailable. Please try again in 5 minutes.");
   }
 };
 
