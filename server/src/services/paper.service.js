@@ -77,12 +77,18 @@ export const getPersonalizedPapers = async (user) => {
   if (cachedData) return cachedData;
 
   // Fetch papers for the user's branch and semester
+  // Using regex for branch to catch variations like "ME" vs "MECHANICAL"
+  const branchRegex = new RegExp(`^${branch}$|^${branch}\\s|\\s${branch}$`, 'i');
+  
   const papers = await Paper.find({
-    branch: branch.toUpperCase(),
-    semester: semester
+    $or: [
+      { branch: branch.toUpperCase() },
+      { branch: { $regex: branchRegex } }
+    ],
+    semester: parseInt(semester)
   })
   .sort({ year: -1, subject_name: 1 })
-  .limit(20)
+  .limit(40) // Increased limit to ensure all subjects are captured
   .lean();
 
   // Also fetch common papers (like HUM101C if the user is in 1st/2nd sem)

@@ -38,3 +38,25 @@ export const chat = async (req, res) => {
     });
   }
 };
+
+export const getDeepAnalysis = async (req, res) => {
+  try {
+    const { subjectCode } = req.params;
+    // Fetch all papers for this subject code to give AI more context
+    const papersResult = await paperService.getPapers({ search: subjectCode }, 1, 10);
+    const papers = papersResult.papers;
+    
+    const analysis = await aiService.getDeepAnalysis(subjectCode, papers);
+    
+    res.json({
+      success: true,
+      data: analysis
+    });
+  } catch (error) {
+    console.error('Error in getDeepAnalysis:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
