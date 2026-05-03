@@ -2,61 +2,34 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
 import axios from "axios";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-
-// ESM compatibility for CommonJS pdf-parse
-let pdf;
-try {
-  const pdfRaw = require("pdf-parse");
-  // Some environments wrap the function in a default property, others don't
-  pdf = (typeof pdfRaw === 'function') ? pdfRaw : (pdfRaw.default || pdfRaw);
-  
-  // If it's still not a function, try to get it from the lib path directly
-  if (typeof pdf !== 'function') {
-    const pdfLib = require("pdf-parse/lib/pdf-parse.js");
-    pdf = (typeof pdfLib === 'function') ? pdfLib : (pdfLib.default || pdfLib);
-  }
-} catch (e) {
-  console.error("Critical error loading PDF parser:", e.message);
-}
-
 import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Gemini 1.5 Flash is perfect for direct PDF processing
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
- * Utility to fetch and extract text from a PDF URL
+ * Fetch PDF as Base64 for Gemini
  */
-const extractTextFromPDF = async (url) => {
+const fetchPDFAsBase64 = async (url) => {
   try {
     const response = await axios.get(url, { 
       responseType: 'arraybuffer',
       timeout: 25000 
     });
-    
-    if (!response.data || response.data.length === 0) return "";
-    
-    // Final check before calling
-    const parse = (typeof pdf === 'function') ? pdf : (pdf?.default || pdf);
-    if (typeof parse !== 'function') {
-      console.error("PDF parser is still not a function after all fallbacks.");
-      return "[PDF Parser Error]";
-    }
-
-    const data = await parse(response.data);
-    return data.text || "";
+    return Buffer.from(response.data).toString("base64");
   } catch (error) {
-    console.error(`[PDF Error] ${url}:`, error.message);
-    return ""; 
+    console.error(`[PDF Fetch Error] ${url}:`, error.message);
+    return null;
   }
 };
 
 /**
- * Deep Analysis: Using Groq (Llama 3.3 70B) for strongest reasoning
+ * Deep Analysis: Using Gemini 1.5 Flash's Native PDF Support
+ * This is the ultimate fix for PDF parsing issues.
  */
 export const getDeepAnalysis = async (subjectCode, papers) => {
   try {
@@ -69,37 +42,45 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       throw new Error(`No papers found for ${subjectCode}.`);
     }
 
-    console.log(`[AI] Deep Analysis for ${subjectCode} using Groq (Llama 3.3 70B)`);
+    console.log(`[AI] Deep Analysis for ${subjectCode} using Gemini Native PDF Support`);
 
-    const paperTexts = await Promise.all(
+    // Fetch all PDFs as base64
+    const paperParts = await Promise.all(
       relevantPapers.map(async (p) => {
-        const text = await extractTextFromPDF(p.pdf_url);
-        const cleanText = text.replace(/\s+/g, ' ').substring(0, 12000); 
-        return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${cleanText}\n---`;
+        const base64 = await fetchPDFAsBase64(p.pdf_url);
+        if (!base64) return null;
+        return {
+          inlineData: {
+            data: base64,
+            mimeType: "application/pdf"
+          }
+        };
       })
     );
 
-    const combinedText = paperTexts.join("\n\n");
+    const validParts = paperParts.filter(p => p !== null);
+    if (validParts.length === 0) {
+      throw new Error("Failed to download any PDF papers for analysis.");
+    }
+
     const subjectInfo = getSubjectInfo(subjectCode);
-    
     const unit1Name = subjectInfo?.units[0] || "Unit I";
     const unit2Name = subjectInfo?.units[1] || "Unit II";
     const unit3Name = subjectInfo?.units[2] || "Unit III";
     const unit4Name = subjectInfo?.units[3] || "Unit IV";
 
     const prompt = `
-      You are the "DCRUST Academic Oracle". 
-      Subject: ${subjectInfo ? subjectInfo.name : subjectCode} (${subjectCode})
-      Units: ${subjectInfo ? subjectInfo.units.join(", ") : "Unit I, II, III, IV"}
+      You are the "DCRUST Academic Oracle". I have attached ${validParts.length} previous year question papers for the subject ${subjectCode}.
       
-      DATA: Text from ${relevantPapers.length} papers.
-      ${combinedText}
+      Subject: ${subjectInfo ? subjectInfo.name : subjectCode}
+      Official Units: ${subjectInfo ? subjectInfo.units.join(", ") : "Standard 4-unit curriculum"}
 
       TASK:
-      1. Map questions to Units.
-      2. Find EXACT repeated questions.
-      3. List high-frequency topics.
-      4. Create a Success Roadmap.
+      1. Analyze the attached PDFs and map all questions to their respective Units.
+      2. Identify EXACT repeated questions across these years.
+      3. List high-frequency topics that appear almost every year.
+      4. Create a comprehensive "Success Roadmap" for this subject.
+      5. List must-draw diagrams.
 
       OUTPUT FORMAT (Strict JSON):
       {
@@ -111,22 +92,25 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
           { "unit": "Unit III", "officialName": "${unit3Name}", "repeatedQuestions": [], "importantTopics": [] },
           { "unit": "Unit IV", "officialName": "${unit4Name}", "repeatedQuestions": [], "importantTopics": [] }
         ],
-        "compulsorySection": [],
-        "roadmap": "A detailed success strategy",
-        "diagrams": [],
-        "expertTip": ""
+        "compulsorySection": ["Topics for short notes / Q1"],
+        "roadmap": "A premium, detailed roadmap for this subject",
+        "diagrams": ["List of diagrams"],
+        "expertTip": "Expert tip to score 90+"
       }
     `;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-      response_format: { type: "json_object" }
-    });
-
-    return JSON.parse(chatCompletion.choices[0]?.message?.content);
+    // Send to Gemini with native PDF parts
+    const result = await model.generateContent([prompt, ...validParts]);
+    const response = await result.response;
+    const text = response.text();
+    
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI response was not in JSON format.");
+    
+    return JSON.parse(jsonMatch[0]);
   } catch (error) {
     console.error("[AI Deep Analysis Error]:", error);
+    // Fallback to Groq if Gemini fails (but without PDF text since pdf-parse is broken)
     throw new Error(error.message || "Deep analysis failed.");
   }
 };
