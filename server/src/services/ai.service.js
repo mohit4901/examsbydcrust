@@ -5,13 +5,20 @@ import axios from "axios";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
-// Robust PDF-parse import for ESM
+// ESM compatibility for CommonJS pdf-parse
 let pdf;
 try {
   const pdfRaw = require("pdf-parse");
-  pdf = typeof pdfRaw === 'function' ? pdfRaw : pdfRaw.default || pdfRaw;
+  // Some environments wrap the function in a default property, others don't
+  pdf = (typeof pdfRaw === 'function') ? pdfRaw : (pdfRaw.default || pdfRaw);
+  
+  // If it's still not a function, try to get it from the lib path directly
+  if (typeof pdf !== 'function') {
+    const pdfLib = require("pdf-parse/lib/pdf-parse.js");
+    pdf = (typeof pdfLib === 'function') ? pdfLib : (pdfLib.default || pdfLib);
+  }
 } catch (e) {
-  console.error("Failed to load pdf-parse:", e.message);
+  console.error("Critical error loading PDF parser:", e.message);
 }
 
 import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
@@ -28,17 +35,19 @@ const extractTextFromPDF = async (url) => {
   try {
     const response = await axios.get(url, { 
       responseType: 'arraybuffer',
-      timeout: 20000 
+      timeout: 25000 
     });
     
     if (!response.data || response.data.length === 0) return "";
     
-    if (typeof pdf !== 'function') {
-      console.error("PDF parser is not a function. Type:", typeof pdf);
+    // Final check before calling
+    const parse = (typeof pdf === 'function') ? pdf : (pdf?.default || pdf);
+    if (typeof parse !== 'function') {
+      console.error("PDF parser is still not a function after all fallbacks.");
       return "[PDF Parser Error]";
     }
 
-    const data = await pdf(response.data);
+    const data = await parse(response.data);
     return data.text || "";
   } catch (error) {
     console.error(`[PDF Error] ${url}:`, error.message);
@@ -47,7 +56,7 @@ const extractTextFromPDF = async (url) => {
 };
 
 /**
- * Deep Analysis: Using Groq (Llama 3.3 70B) for strongest reasoning and better reliability
+ * Deep Analysis: Using Groq (Llama 3.3 70B) for strongest reasoning
  */
 export const getDeepAnalysis = async (subjectCode, papers) => {
   try {
@@ -60,13 +69,12 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       throw new Error(`No papers found for ${subjectCode}.`);
     }
 
-    console.log(`[AI] Deep Analysis for ${subjectCode} using Groq`);
+    console.log(`[AI] Deep Analysis for ${subjectCode} using Groq (Llama 3.3 70B)`);
 
     const paperTexts = await Promise.all(
       relevantPapers.map(async (p) => {
         const text = await extractTextFromPDF(p.pdf_url);
-        // Limit each paper to 10k chars to stay safe within Groq context (128k)
-        const cleanText = text.replace(/\s+/g, ' ').substring(0, 10000); 
+        const cleanText = text.replace(/\s+/g, ' ').substring(0, 12000); 
         return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${cleanText}\n---`;
       })
     );
@@ -104,7 +112,7 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
           { "unit": "Unit IV", "officialName": "${unit4Name}", "repeatedQuestions": [], "importantTopics": [] }
         ],
         "compulsorySection": [],
-        "roadmap": "",
+        "roadmap": "A detailed success strategy",
         "diagrams": [],
         "expertTip": ""
       }
