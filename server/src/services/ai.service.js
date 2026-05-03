@@ -75,7 +75,31 @@ const fetchPDFAsBase64 = async (url) => {
 };
 
 /**
- * Deep Analysis: Using Gemini with a fallback to Groq if Gemini 404s
+ * Stage 1: Extraction (Using Gemini 1.5 Flash)
+ */
+const extractTextFromPDF = async (url) => {
+  try {
+    const base64 = await fetchPDFAsBase64(url);
+    if (!base64) return null;
+
+    const prompt = "Extract all text from this exam paper. Include questions, units, and marks. Return raw text only.";
+    const result = await model.generateContent([
+      prompt,
+      { inlineData: { data: base64, mimeType: "application/pdf" } }
+    ]);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.warn(`[Extraction Error] ${url}:`, error.message);
+    return null;
+  }
+};
+
+/**
+ * Deep Analysis: Triple-Model Pipeline
+ * Stage 1: Gemini (Text Extraction)
+ * Stage 2: NVIDIA (Deep Reasoning)
+ * Stage 3: Groq (Verification & JSON Formatting)
  */
 export const getDeepAnalysis = async (subjectCode, papers) => {
   try {
@@ -84,106 +108,66 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       .sort((a, b) => b.year - a.year)
       .slice(0, 3);
 
-    if (relevantPapers.length === 0) {
-      throw new Error(`No papers found for ${subjectCode}.`);
-    }
+    if (relevantPapers.length === 0) throw new Error(`No papers found for ${subjectCode}.`);
 
-    console.log(`[AI] Deep Analysis for ${subjectCode} (Attempting Gemini 1.5 Flash)`);
+    console.log(`[AI Pipeline] Starting Analysis for ${subjectCode}`);
 
-    const paperParts = await Promise.all(
+    // STAGE 1: Extract Text from all papers using Gemini
+    const extractedTexts = await Promise.all(
       relevantPapers.map(async (p) => {
-        const base64 = await fetchPDFAsBase64(p.pdf_url);
-        if (!base64) return null;
-        return {
-          inlineData: {
-            data: base64,
-            mimeType: "application/pdf"
-          }
-        };
+        const text = await extractTextFromPDF(p.pdf_url);
+        return text ? `YEAR: ${p.year}\nCONTENT: ${text}\n---` : null;
       })
     );
 
-    const validParts = paperParts.filter(p => p !== null);
-    
+    const fullRawText = extractedTexts.filter(t => t !== null).join("\n");
+    if (!fullRawText) throw new Error("Could not extract text from any papers.");
+
     const subjectInfo = getSubjectInfo(subjectCode);
-    const prompt = `
-      You are the "DCRUST Academic Oracle". 
-      Subject: ${subjectInfo ? subjectInfo.name : subjectCode} (${subjectCode})
-      Units: ${subjectInfo ? subjectInfo.units.join(", ") : "Standard 4 Units"}
-
-      TASK:
-      1. CRITICAL: Identify all REPEATED QUESTIONS across these years. Count their frequency and list the years.
-      2. Map all questions to Units I, II, III, IV based on the syllabus.
+    
+    // STAGE 2: Deep Analysis using NVIDIA Llama 3.1 405B
+    console.log("[AI Pipeline] Stage 2: NVIDIA (Deep Reasoning)");
+    const analysisPrompt = `
+      Subject: ${subjectInfo?.name || subjectCode}
+      Data: ${fullRawText.substring(0, 10000)}
+      
+      TASK: 
+      1. Find all REPEATED questions and their frequency.
+      2. Map questions to Units I, II, III, IV.
       3. Create a success strategy.
-
-      OUTPUT FORMAT (Strict JSON):
+      
+      Return JSON:
       {
         "subject": "${subjectCode}",
-        "subjectName": "${subjectInfo ? subjectInfo.name : ''}",
+        "subjectName": "${subjectInfo?.name || subjectCode}",
         "analysis": [
           { "unit": "Unit I", "officialName": "${subjectInfo?.units[0] || 'Unit I'}", "repeatedQuestions": [], "importantTopics": [] },
           { "unit": "Unit II", "officialName": "${subjectInfo?.units[1] || 'Unit II'}", "repeatedQuestions": [], "importantTopics": [] },
           { "unit": "Unit III", "officialName": "${subjectInfo?.units[2] || 'Unit III'}", "repeatedQuestions": [], "importantTopics": [] },
           { "unit": "Unit IV", "officialName": "${subjectInfo?.units[3] || 'Unit IV'}", "repeatedQuestions": [], "importantTopics": [] }
         ],
-        "compulsorySection": [],
-        "roadmap": "Strategy roadmap",
-        "diagrams": [],
-        "expertTip": ""
+        "roadmap": "detailed strategy",
+        "diagrams": ["list of diagrams"],
+        "expertTip": "tip"
       }
     `;
 
-    try {
-      const result = await model.generateContent([prompt, ...validParts]);
-      const response = await result.response;
-      const text = response.text();
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      return JSON.parse(jsonMatch ? jsonMatch[0] : text);
-    } catch (geminiError) {
-      console.warn("[AI] Gemini failed, attempting NVIDIA NIM (Llama 3.1 405B)");
-      
-      const fallbackTexts = await Promise.all(
-        relevantPapers.map(async (p) => {
-          try {
-            const response = await axios.get(p.pdf_url, { responseType: 'arraybuffer', timeout: 15000 });
-            const buffer = Buffer.from(response.data);
-            const parsed = await parsePDF(buffer);
-            let text = parsed ? parsed.text : "";
-            if (!text) {
-              const str = buffer.toString('utf-8');
-              const matches = str.match(/\((.*?)\)/g);
-              text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
-            }
-            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 2000);
-            return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
-          } catch (e) { return `YEAR: ${p.year} (Error: ${e.message})`; }
-        })
-      );
+    let finalResult = await callNVIDIA(analysisPrompt);
 
-      const fallbackPrompt = `
-        PRIMARY TASK: Identify EXACT REPEATED QUESTIONS across these papers. Count frequency.
-        DATA: ${fallbackTexts.join("\n")}
-        REQUIRED JSON FORMAT: Same as above. Return ONLY JSON.
-      `;
-
-      // Try NVIDIA First (Higher Quality than Groq)
-      const nvidiaResult = await callNVIDIA(fallbackPrompt);
-      if (nvidiaResult) return nvidiaResult;
-
-      console.warn("[AI] NVIDIA failed, falling back to Groq");
+    // STAGE 3: Final Verification & Formatting using Groq (if NVIDIA fails or for double check)
+    if (!finalResult) {
+      console.log("[AI Pipeline] Stage 3: Groq (Fallback Analysis)");
       const groqCompletion = await groq.chat.completions.create({
-        messages: [{ role: "user", content: fallbackPrompt }],
+        messages: [{ role: "user", content: analysisPrompt }],
         model: "llama-3.3-70b-versatile",
-        max_tokens: 4096,
         response_format: { type: "json_object" } 
       });
-
-      return JSON.parse(groqCompletion.choices[0]?.message?.content);
+      finalResult = JSON.parse(groqCompletion.choices[0]?.message?.content);
     }
+
+    return finalResult;
   } catch (error) {
-    console.error("[AI Deep Analysis Fatal Error]:", error);
-    // Return a valid empty structure instead of throwing 500 to prevent frontend crash
-    const subjectInfo = getSubjectInfo(subjectCode);
+    console.error("[AI Pipeline Fatal]:", error);
     return {
       subject: subjectCode,
       subjectName: subjectInfo?.name || subjectCode,
