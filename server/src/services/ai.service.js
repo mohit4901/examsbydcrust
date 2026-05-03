@@ -12,6 +12,36 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersi
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
+ * Bulletproof PDF Parser: Bypasses ESM export restrictions
+ */
+const parsePDF = async (buffer) => {
+  try {
+    // Attempt 1: Direct path import (bypasses package.json "exports")
+    try {
+      const { createRequire } = await import('module');
+      const require = createRequire(import.meta.url);
+      const path = require('path');
+      const pdfLibPath = path.resolve(process.cwd(), 'node_modules/pdf-parse/lib/pdf-parse.js');
+      const pdf = require(pdfLibPath);
+      if (typeof pdf === 'function') return await pdf(buffer);
+    } catch (e) { }
+
+    // Attempt 2: Standard resolution
+    try {
+      const { createRequire } = await import('module');
+      const require = createRequire(import.meta.url);
+      const pdfRaw = require('pdf-parse');
+      const pdf = typeof pdfRaw === 'function' ? pdfRaw : (pdfRaw.default || Object.values(pdfRaw).find(v => typeof v === 'function'));
+      if (typeof pdf === 'function') return await pdf(buffer);
+    } catch (e) { }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
  * Fetch PDF as Base64 for Gemini
  */
 const fetchPDFAsBase64 = async (url) => {
@@ -96,32 +126,18 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
     } catch (geminiError) {
       console.warn("[AI] Gemini failed or 404, falling back to Llama 3.3 70B");
       
-      // Fallback Strategy: Multi-level PDF Parser Resolver + Groq
+      // Fallback Strategy: Bulletproof PDF Parser + Groq
       const fallbackTexts = await Promise.all(
         relevantPapers.map(async (p) => {
           try {
             const response = await axios.get(p.pdf_url, { responseType: 'arraybuffer', timeout: 15000 });
             const buffer = Buffer.from(response.data);
             
-            let text = "";
-            try {
-              // Try to resolve pdf-parse in ESM/CJS interop environment
-              const { createRequire } = await import('module');
-              const require = createRequire(import.meta.url);
-              const pdfRaw = require('pdf-parse');
-              
-              // Find the actual function (sometimes it's .default, sometimes it's the object itself)
-              const pdf = typeof pdfRaw === 'function' ? pdfRaw : (pdfRaw.default || Object.values(pdfRaw).find(v => typeof v === 'function'));
-              
-              if (typeof pdf === 'function') {
-                const data = await pdf(buffer);
-                text = data.text;
-              } else {
-                throw new Error("Parser not found");
-              }
-            } catch (parserError) {
+            const parsed = await parsePDF(buffer);
+            let text = parsed ? parsed.text : "";
+
+            if (!text) {
               console.warn(`[AI PDF] Library parser failed for ${p.year}, using regex fallback`);
-              // Regex fallback for text extraction from binary
               const str = buffer.toString('utf-8');
               const matches = str.match(/\((.*?)\)/g);
               text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
@@ -131,7 +147,7 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
             text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 1500);
             return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
           } catch (e) {
-            return `YEAR: ${p.year} (Unreachable: ${e.message})`;
+            return `YEAR: ${p.year} (Error: ${e.message})`;
           }
         })
       );
