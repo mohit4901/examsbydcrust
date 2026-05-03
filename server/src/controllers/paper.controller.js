@@ -34,6 +34,22 @@ export const getPapers = async (req, res) => {
   }
 };
 
+export const getMyPapers = async (req, res) => {
+  try {
+    const papers = await paperService.getPersonalizedPapers(req.user);
+    res.json({
+      success: true,
+      data: papers
+    });
+  } catch (error) {
+    console.error('Error in getMyPapers:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch personalized papers'
+    });
+  }
+};
+
 export const getFilters = async (req, res) => {
   try {
     const filters = await paperService.getAvailableFilters();

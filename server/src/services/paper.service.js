@@ -15,25 +15,30 @@ export const getPapers = async (filters = {}, page = 1, limit = 50) => {
 
   //  Text search
   if (filters.search && filters.search.trim() !== '') {
+    const searchRegex = new RegExp(filters.search.trim().replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+    const cleanSearch = filters.search.trim().replace(/[^a-zA-Z0-9]/g, '');
+    
     query.$or = [
-      { subject_name: { $regex: filters.search, $options: 'i' } },
-      { subject_code: { $regex: filters.search, $options: 'i' } }
+      { subject_name: { $regex: searchRegex } },
+      { subject_code: { $regex: searchRegex } },
+      { subject_code: { $regex: new RegExp(cleanSearch, 'i') } }
     ];
   }
 
   // Branch
   if (filters.branch && filters.branch !== 'ALL') {
+    // Handle both single branch and multiple branches (if needed later)
     query.branch = filters.branch.toUpperCase();
   }
 
   // Semester
-  if (Number.isInteger(filters.semester)) {
-    query.semester = filters.semester;
+  if (filters.semester !== undefined && filters.semester !== null) {
+    query.semester = parseInt(filters.semester);
   }
 
   // Year
-  if (Number.isInteger(filters.year)) {
-    query.year = filters.year;
+  if (filters.year !== undefined && filters.year !== null) {
+    query.year = parseInt(filters.year);
   }
 
   // Session
@@ -62,6 +67,29 @@ export const getPapers = async (filters = {}, page = 1, limit = 50) => {
 
   cache.set(cacheKey, result);
   return result;
+};
+
+export const getPersonalizedPapers = async (user) => {
+  const { branch, semester } = user;
+  
+  const cacheKey = `personalized_${branch}_${semester}`;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) return cachedData;
+
+  // Fetch papers for the user's branch and semester
+  const papers = await Paper.find({
+    branch: branch.toUpperCase(),
+    semester: semester
+  })
+  .sort({ year: -1, subject_name: 1 })
+  .limit(20)
+  .lean();
+
+  // Also fetch common papers (like HUM101C if the user is in 1st/2nd sem)
+  // This is a bit more complex, but for now we'll stick to direct match
+  
+  cache.set(cacheKey, papers);
+  return papers;
 };
 
 export const getAvailableFilters = async () => {

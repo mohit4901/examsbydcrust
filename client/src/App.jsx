@@ -13,6 +13,7 @@ const Home = lazy(() => import('./pages/Home'));
 const Papers = lazy(() => import('./pages/Papers'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const Profile = lazy(() => import('./pages/Profile'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 function AppContent() {
@@ -36,6 +37,14 @@ function AppContent() {
             />
             <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
             <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

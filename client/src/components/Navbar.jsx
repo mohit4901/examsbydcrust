@@ -62,9 +62,17 @@ function Navbar() {
 
           {user ? (
             <div className="flex items-center gap-6">
-              <span className="text-white font-bold bg-white/5 px-3 py-1 rounded-lg">
-                {user.name.split(' ')[0]}
-              </span>
+              <Link 
+                to="/profile"
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+                  isActive("/profile") ? "bg-white text-black" : "bg-white/5 text-white hover:bg-white/10"
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span className="font-bold">
+                  {user.name.split(' ')[0]}
+                </span>
+              </Link>
               <button 
                 onClick={logout}
                 className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
@@ -135,15 +143,23 @@ function Navbar() {
 
             {user ? (
               <>
-                <div className="flex items-center gap-3 p-4 text-white">
-                  <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-bold">
+                <Link
+                  to="/profile"
+                  onClick={closeMenu}
+                  className={`flex items-center gap-3 p-4 rounded-2xl ${
+                    isActive("/profile") ? "bg-white text-black font-bold" : "text-white hover:bg-white/5"
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                    isActive("/profile") ? "bg-black text-white" : "bg-white/10 text-white"
+                  }`}>
                     {user.name[0]}
                   </div>
                   <div>
                     <div className="font-bold">{user.name}</div>
-                    <div className="text-xs text-gray-500">{user.email}</div>
+                    <div className="text-xs text-gray-500">View Profile & Analysis</div>
                   </div>
-                </div>
+                </Link>
                 <button
                   onClick={() => { logout(); closeMenu(); }}
                   className="flex items-center gap-3 p-4 rounded-2xl text-red-400 hover:bg-red-500/10 transition-colors"
