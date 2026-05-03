@@ -77,7 +77,7 @@ const fetchPDFAsBase64 = async (url) => {
 };
 
 /**
- * Stage 1: Extraction (Using Gemini 1.5 Flash)
+ * Stage 1: Extraction (Using Gemini 1.5 Flash - Direct REST API)
  */
 const extractTextFromPDF = async (url) => {
   try {
@@ -85,14 +85,24 @@ const extractTextFromPDF = async (url) => {
     if (!base64) return null;
 
     const prompt = "Extract all text from this exam paper. Include questions and units. Return raw text only.";
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: base64, mimeType: "application/pdf" } }
-    ]);
-    const response = await result.response;
-    return response.text();
+    
+    // Direct REST API call to bypass SDK issues
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: "application/pdf", data: base64 } }
+          ]
+        }]
+      },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
   } catch (error) {
-    console.warn(`[Extraction Error] ${url}:`, error.message);
+    console.warn(`[Extraction Error] ${url}:`, error.response?.data || error.message);
     return null;
   }
 };
