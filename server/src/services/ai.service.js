@@ -6,10 +6,36 @@ import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 
 dotenv.config();
 
-// Use v1beta with the newer flash-8b model which is highly available
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" }, { apiVersion: "v1beta" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+/**
+ * NVIDIA NIM Integration (High Quality Reasoning Fallback)
+ */
+const callNVIDIA = async (prompt) => {
+  try {
+    const response = await axios.post(
+      "https://integrate.api.nvidia.com/v1/chat/completions",
+      {
+        model: "meta/llama-3.1-405b-instruct",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 4096,
+        response_format: { type: "json_object" }
+      },
+      {
+        headers: {
+          "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    return JSON.parse(response.data.choices[0].message.content);
+  } catch (error) {
+    console.error("[NVIDIA Error]:", error.message);
+    return null;
+  }
+};
 
 /**
  * Bulletproof PDF Parser: Bypasses Worker and ESM issues using eval-require
@@ -112,69 +138,47 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
       const response = await result.response;
       const text = response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Malformed AI response");
-      return JSON.parse(jsonMatch[0]);
+      return JSON.parse(jsonMatch ? jsonMatch[0] : text);
     } catch (geminiError) {
-      console.warn("[AI] Gemini failed or 404, falling back to Llama 3.3 70B");
+      console.warn("[AI] Gemini failed, attempting NVIDIA NIM (Llama 3.1 405B)");
       
-      // Fallback Strategy: Bulletproof PDF Parser + Groq
       const fallbackTexts = await Promise.all(
         relevantPapers.map(async (p) => {
           try {
             const response = await axios.get(p.pdf_url, { responseType: 'arraybuffer', timeout: 15000 });
             const buffer = Buffer.from(response.data);
-            
             const parsed = await parsePDF(buffer);
             let text = parsed ? parsed.text : "";
-
             if (!text) {
-              console.warn(`[AI PDF] Library parser failed for ${p.year}, using regex fallback`);
               const str = buffer.toString('utf-8');
               const matches = str.match(/\((.*?)\)/g);
               text = matches ? matches.map(m => m.slice(1, -1)).join(' ') : "";
             }
-
-            // Strictly limit to 1500 chars to stay under 12k TPM Groq limit
-            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 1500);
+            text = text.replace(/[^\x20-\x7E\n\t]/g, "").replace(/\s+/g, " ").substring(0, 2000);
             return `YEAR: ${p.year}, SESSION: ${p.session}\nCONTENT: ${text}\n---`;
-          } catch (e) {
-            return `YEAR: ${p.year} (Error: ${e.message})`;
-          }
+          } catch (e) { return `YEAR: ${p.year} (Error: ${e.message})`; }
         })
       );
 
       const fallbackPrompt = `
         PRIMARY TASK: Identify EXACT REPEATED QUESTIONS across these papers. Count frequency.
-        DATA EXTRACTED FROM PDFS:
-        ${fallbackTexts.join("\n")}
-
-        REQUIRED JSON FORMAT (Strictly return only this):
-        {
-          "subject": "${subjectCode}",
-          "subjectName": "${subjectInfo?.name || subjectCode}",
-          "analysis": [
-            { "unit": "Unit I", "officialName": "${subjectInfo?.units[0] || 'Unit I'}", "repeatedQuestions": [], "importantTopics": [] },
-            { "unit": "Unit II", "officialName": "${subjectInfo?.units[1] || 'Unit II'}", "repeatedQuestions": [], "importantTopics": [] },
-            { "unit": "Unit III", "officialName": "${subjectInfo?.units[2] || 'Unit III'}", "repeatedQuestions": [], "importantTopics": [] },
-            { "unit": "Unit IV", "officialName": "${subjectInfo?.units[3] || 'Unit IV'}", "repeatedQuestions": [], "importantTopics": [] }
-          ],
-          "compulsorySection": [],
-          "roadmap": "A detailed success strategy",
-          "diagrams": [],
-          "expertTip": ""
-        }
-
-        IMPORTANT: Return ONLY the JSON object. Do not include markdown blocks.
+        DATA: ${fallbackTexts.join("\n")}
+        REQUIRED JSON FORMAT: Same as above. Return ONLY JSON.
       `;
 
-      const fallbackCompletion = await groq.chat.completions.create({
+      // Try NVIDIA First (Higher Quality than Groq)
+      const nvidiaResult = await callNVIDIA(fallbackPrompt);
+      if (nvidiaResult) return nvidiaResult;
+
+      console.warn("[AI] NVIDIA failed, falling back to Groq");
+      const groqCompletion = await groq.chat.completions.create({
         messages: [{ role: "user", content: fallbackPrompt }],
         model: "llama-3.3-70b-versatile",
-        max_tokens: 4096, // Increase max tokens to ensure full JSON generation
+        max_tokens: 4096,
         response_format: { type: "json_object" } 
       });
 
-      return JSON.parse(fallbackCompletion.choices[0]?.message?.content);
+      return JSON.parse(groqCompletion.choices[0]?.message?.content);
     }
   } catch (error) {
     console.error("[AI Deep Analysis Fatal Error]:", error);
