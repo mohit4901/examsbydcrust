@@ -4,14 +4,15 @@ import dotenv from "dotenv";
 import axios from "axios";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pdf = require("pdf-parse");
+const pdfRaw = require("pdf-parse");
+const pdf = typeof pdfRaw === 'function' ? pdfRaw : pdfRaw.default;
 import { SYLLABUS_MAP, getSubjectInfo } from "../utils/syllabus.js";
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Using 1.5-flash which has a massive context window for reading multiple PDFs
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+// Using 1.5-flash-latest for better stability and features
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" }); 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
