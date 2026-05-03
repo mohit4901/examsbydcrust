@@ -191,58 +191,58 @@ const Profile = () => {
                   className="space-y-8"
                 >
                   <div className="p-6 bg-white/5 rounded-3xl border border-white/5 leading-relaxed text-gray-300 italic text-lg">
-                    "{aiInsights.summary}"
+                    "{aiInsights?.summary || "Your custom roadmap is ready."}"
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-6 bg-red-500/5 rounded-3xl border border-red-500/10 space-y-4">
-                      <h3 className="text-xs font-black text-red-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        Tough Subjects
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {aiInsights.toughSubjects.map(sub => (
-                          <span key={sub} className="bg-red-500/10 text-red-400 px-4 py-2 rounded-xl text-[10px] font-black border border-red-500/10 uppercase">
-                            {sub}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="p-6 bg-white/5 rounded-3xl border border-white/10 space-y-4">
-                      <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Priority Papers
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {aiInsights.priorityPapers.map(code => (
-                          <span key={code} className="bg-white/10 text-white px-4 py-2 rounded-xl text-[10px] font-black border border-white/5 uppercase">
-                            {code}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-8 bg-white text-black rounded-[40px] shadow-2xl">
-                    <h3 className="text-xl font-black mb-6 flex items-center gap-2 tracking-tighter">
-                      <Star className="w-6 h-6 fill-black" />
-                      Success Strategy
-                    </h3>
-                    <p className="text-sm font-bold mb-8 leading-relaxed opacity-70">
-                      {aiInsights.strategy}
-                    </p>
-                    <div className="space-y-4">
-                      {aiInsights.tips.map((tip, idx) => (
-                        <div key={idx} className="flex gap-4 items-center p-4 bg-black/5 rounded-2xl border border-black/5">
-                          <div className="w-8 h-8 bg-black text-white rounded-xl flex items-center justify-center text-xs font-black shrink-0">
-                            {idx + 1}
-                          </div>
-                          <p className="text-sm font-black opacity-60 tracking-tight">{tip}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+ 
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div className="p-6 bg-red-500/5 rounded-3xl border border-red-500/10 space-y-4">
+                       <h3 className="text-xs font-black text-red-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                         <AlertCircle className="w-4 h-4" />
+                         Tough Subjects
+                       </h3>
+                       <div className="flex flex-wrap gap-2">
+                         {aiInsights?.toughSubjects?.map(sub => (
+                           <span key={sub} className="bg-red-500/10 text-red-400 px-4 py-2 rounded-xl text-[10px] font-black border border-red-500/10 uppercase">
+                             {sub}
+                           </span>
+                         ))}
+                       </div>
+                     </div>
+ 
+                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 space-y-4">
+                       <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                         <CheckCircle2 className="w-4 h-4" />
+                         Priority Papers
+                       </h3>
+                       <div className="flex flex-wrap gap-2">
+                         {aiInsights?.priorityPapers?.map(code => (
+                           <span key={code} className="bg-white/10 text-white px-4 py-2 rounded-xl text-[10px] font-black border border-white/5 uppercase">
+                             {code}
+                           </span>
+                         ))}
+                       </div>
+                     </div>
+                   </div>
+ 
+                   <div className="p-8 bg-white text-black rounded-[40px] shadow-2xl">
+                     <h3 className="text-xl font-black mb-6 flex items-center gap-2 tracking-tighter">
+                       <Star className="w-6 h-6 fill-black" />
+                       Success Strategy
+                     </h3>
+                     <p className="text-sm font-bold mb-8 leading-relaxed opacity-70">
+                       {aiInsights?.strategy}
+                     </p>
+                     <div className="space-y-4">
+                       {aiInsights?.tips?.map((tip, idx) => (
+                         <div key={idx} className="flex gap-4 items-center p-4 bg-black/5 rounded-2xl border border-black/5">
+                           <div className="w-8 h-8 bg-black text-white rounded-xl flex items-center justify-center text-xs font-black shrink-0">
+                             {idx + 1}
+                           </div>
+                           <p className="text-sm font-black opacity-60 tracking-tight">{tip}</p>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
                 </motion.div>
               ) : (
                 <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[40px] group hover:border-white/20 transition-all">

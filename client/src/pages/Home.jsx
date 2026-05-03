@@ -60,7 +60,7 @@ function Home() {
               </Link>
               
               <Link
-                to="/papers"
+                to="/profile"
                 className="w-full sm:w-auto flex items-center justify-center gap-3 bg-white text-black border-2 border-black/5 px-12 py-6 rounded-[24px] text-lg font-black shadow-xl hover:bg-gray-50 transition-all"
               >
                 <BrainCircuit className="w-6 h-6 text-blue-600" />

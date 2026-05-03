@@ -191,7 +191,21 @@ export const getDeepAnalysis = async (subjectCode, papers) => {
 export const getStudyRecommendations = async (user, papers) => {
   try {
     if (!papers || papers.length === 0) return { summary: "No papers.", toughSubjects: [], strategy: "", tips: [], priorityPapers: [] };
-    const prompt = `User: ${user.name} (${user.branch}, Sem ${user.semester}). Papers: ${papers.map(p => p.subject_name).join(', ')}. Format as JSON.`;
+    
+    const prompt = `
+      As an expert DCRUST Academic Counselor, analyze these papers for ${user.name} (${user.branch}, Sem ${user.semester}).
+      Papers: ${papers.map(p => p.subject_name).join(', ')}.
+
+      Return a JSON object with EXACTLY these fields:
+      {
+        "summary": "1-sentence motivation based on papers",
+        "toughSubjects": ["List of subjects likely to be hard"],
+        "strategy": "A 2-sentence strategy to score O-grade",
+        "tips": ["Tip 1", "Tip 2"],
+        "priorityPapers": ["Subject codes that need focus"]
+      }
+    `;
+
     const chatCompletion = await groq.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
@@ -200,7 +214,13 @@ export const getStudyRecommendations = async (user, papers) => {
     return JSON.parse(chatCompletion.choices[0]?.message?.content);
   } catch (error) {
     console.error("[AI Insights Error]:", error);
-    throw error;
+    return { 
+      summary: "Stay focused on your exam preparation.", 
+      toughSubjects: ["Analysis failed"], 
+      strategy: "Review past papers manually while we fix the AI engine.", 
+      tips: ["Don't wait for AI to start studying"], 
+      priorityPapers: [] 
+    };
   }
 };
 
