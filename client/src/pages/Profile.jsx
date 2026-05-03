@@ -418,11 +418,36 @@ const Profile = () => {
                       onChange={(e) => setEditData({...editData, branch: e.target.value})}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-4 focus:outline-none focus:border-white/20 transition-all font-bold appearance-none"
                     >
-                      <option value="BCA" className="bg-[#1a1a1a]">BCA</option>
-                      <option value="CSE" className="bg-[#1a1a1a]">CSE</option>
-                      <option value="ME" className="bg-[#1a1a1a]">ME</option>
-                      <option value="ECE" className="bg-[#1a1a1a]">ECE</option>
-                      <option value="CIVIL" className="bg-[#1a1a1a]">CIVIL</option>
+                      <optgroup label="Bachelors" className="bg-[#1a1a1a]">
+                        <option value="BCA">BCA</option>
+                        <option value="B.Tech CSE">B.Tech CSE</option>
+                        <option value="B.Tech ME">B.Tech ME</option>
+                        <option value="B.Tech ECE">B.Tech ECE</option>
+                        <option value="B.Tech CIVIL">B.Tech CIVIL</option>
+                        <option value="B.Tech EE">B.Tech EE</option>
+                        <option value="B.Tech BT">B.Tech BT</option>
+                        <option value="B.Tech CHE">B.Tech CHE</option>
+                        <option value="BBA">BBA</option>
+                        <option value="B.Arch">B.Arch</option>
+                      </optgroup>
+                      <optgroup label="Masters" className="bg-[#1a1a1a]">
+                        <option value="MCA">MCA</option>
+                        <option value="M.Tech CSE">M.Tech CSE</option>
+                        <option value="M.Tech ME">M.Tech ME</option>
+                        <option value="M.Tech ECE">M.Tech ECE</option>
+                        <option value="MBA">MBA</option>
+                        <option value="M.Sc Physics">M.Sc Physics</option>
+                        <option value="M.Sc Chemistry">M.Sc Chemistry</option>
+                        <option value="M.Sc Math">M.Sc Math</option>
+                      </optgroup>
+                      <optgroup label="PhD" className="bg-[#1a1a1a]">
+                        <option value="PhD CSE">PhD CSE</option>
+                        <option value="PhD ME">PhD ME</option>
+                        <option value="PhD ECE">PhD ECE</option>
+                        <option value="PhD Physics">PhD Physics</option>
+                        <option value="PhD Chemistry">PhD Chemistry</option>
+                        <option value="PhD Math">PhD Math</option>
+                      </optgroup>
                     </select>
                   </div>
                   <div className="space-y-2">
